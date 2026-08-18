@@ -11,7 +11,8 @@ Motion data are extracted from video recordings using computer vision and pose e
 
 The goal is to determine how the different physical environments and techniques of classical ballet and figure skating affect rotational motion and dynamic balance, and to examine whether the same physical principles can be used to describe both types of movement.
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
 
 Ovaj projekat predstavlja komparativnu analizu fizičkih i biomehaničkih principa koji određuju rotaciona kretanja tokom okreta u klasičnom baletu i umetničkom klizanju.
 
