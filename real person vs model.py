@@ -10,10 +10,7 @@ from scipy.ndimage import median_filter
 
 warnings.filterwarnings('ignore')
 
-# =============================================================================
-# 1. PARAMETRI, BAZA ATLETA, DE LEVA MODEL I DIREKTORIJUMI
-# =============================================================================
-
+# ovde idu podaci i parametri 
 TIME_WINDOWS = {
     "trusova":       (6.0, 10.0),
     "khoreva":       (0.0, 4.0),
@@ -107,9 +104,7 @@ if not os.path.exists(INPUT_DIR):
 if not os.path.exists(INPUT_DIR):
     INPUT_DIR = "."
 
-# =============================================================================
-# 2. NUMERIČKE I KINEMATIČKE POMOĆNE FUNKCIJE
-# =============================================================================
+# interpoalcija matematicke funkcije i to 
 
 def clean_and_interpolate_signal(arr, vis=None, vis_threshold=0.35):
     arr = np.asarray(arr, dtype=float).copy()
@@ -228,10 +223,7 @@ def track_strictly_monotonic_spin(raw_angles, is_skater=True):
     theta_smooth = savgol_filter(theta_continuous, window_length=win, polyorder=2)
     return np.maximum(theta_smooth, 0.0)
 
-# =============================================================================
-# 3. GLAVNA OBRADA
-# =============================================================================
-
+# glavna obrada
 all_files = glob.glob(os.path.join(INPUT_DIR, "*_kinematics.csv"))
 if not all_files:
     all_files = glob.glob(os.path.join(INPUT_DIR, "*.csv"))
@@ -243,10 +235,13 @@ summary_lott_rows = []
 global_inertia_dict = {}
 global_cycles_inertia = {}
 table_inertia_rows = []
+table_inertia_model_rows = [] # tabela za model inercije
 table4_master_rows = []
 global_momentum_dict = {}
 global_cycles_momentum = {}
 table_momentum_rows = []
+table_momentum_model_rows = [] # tabela za moemnt impulsa
+table_torque_model_rows = [] # tabela za moment sile
 global_energy_dict = {}
 global_cycles_energy = {}
 table_energy_rows = []
@@ -257,7 +252,7 @@ validation_summary_rows = []
 processed_names = set()
 
 print("\n" + "="*145)
-print("  POKRETANJE OBJEDINJENE EVALUACIJE: PRAVA OSOBA VS MODEL (ZAVRŠNA FINA KALIBRACIJA)")
+print(" model vs prava osoba ")
 print("="*145 + "\n")
 
 for file in sorted(all_files):
@@ -297,7 +292,7 @@ for file in sorted(all_files):
     dt = (t_end - t_start) / max(1, (n_frames - 1))
     time_axis = np.arange(n_frames) * dt
 
-    # 1. PCHIP filtriranje svih 33 markera (PRAVA OSOBA - NETAKNUTO)
+    # 1. PCHIP filtriranje svih 33 kljucne tacke tela
     pts_array = np.zeros((n_frames, 33, 3))
     for lm in range(33):
         vis_col = f"vis_{lm}" if f"vis_{lm}" in df_crop.columns else f"VIS_{lm}"
@@ -307,7 +302,7 @@ for file in sorted(all_files):
             if col in df_crop.columns:
                 pts_array[:, lm, ax_idx] = clean_and_interpolate_signal(df_crop[col].values, vis=vis_series, vis_threshold=0.35)
 
-    # 2. Detekcija pivot noge (PRAVA OSOBA - NETAKNUTO)
+    # 2. Detekcija pivot noge
     var_l = np.median(np.abs(pts_array[:, 31, :2] - np.median(pts_array[:, 31, :2], axis=0))) + \
             np.median(np.abs(pts_array[:, 27, :2] - np.median(pts_array[:, 27, :2], axis=0)))
     var_r = np.median(np.abs(pts_array[:, 32, :2] - np.median(pts_array[:, 32, :2], axis=0))) + \
@@ -321,7 +316,7 @@ for file in sorted(all_files):
     pivot_name = "Leva noga" if planted_side == "left" else "Desna noga"
     pivot_str = "Leva (31)" if planted_side == "left" else "Desna (32)"
 
-    # 3. Metričko skaliranje (PRAVA OSOBA - NETAKNUTO)
+    # 3. Metričko skaliranje
     mid_shoulder = (pts_array[:, 11, :] + pts_array[:, 12, :]) / 2.0
     mid_hip = (pts_array[:, 23, :] + pts_array[:, 24, :]) / 2.0
     head_vertex = pts_array[:, 0, :] + 0.5 * (pts_array[:, 0, :] - mid_shoulder)
@@ -352,7 +347,7 @@ for file in sorted(all_files):
     z_correction = np.clip(hip_width_real / (hip_width_meas + 1e-5), 0.35, 0.65)
     pts_m[:, :, 2] = pts_m[:, :, 2] * z_correction
 
-    # 4. Kinematika rotacije prave osobe (NETAKNUTO)
+    # 4. Kinematika rotacije prave osobe
     raw_angles_B = compute_fused_torso_orientation_3d(pts_m)
     theta_B = track_strictly_monotonic_spin(raw_angles_B, is_skater=is_skater)
     
@@ -371,7 +366,7 @@ for file in sorted(all_files):
     omega_deg_s = np.degrees(omega_B)
     alpha_deg_s2 = savgol_filter(omega_deg_s, window_length=win_dyn_kin, polyorder=2, deriv=1, delta=dt)
 
-    # 5. Segmenti i centri mase - De Leva 1996 (PRAVA OSOBA - NETAKNUTO)
+    # 5. Segmenti i centri mase - De Leva 1996
     mid_sh_m = (pts_m[:, 11, :] + pts_m[:, 12, :]) / 2.0
     mid_hp_m = (pts_m[:, 23, :] + pts_m[:, 24, :]) / 2.0
     head_v_m = pts_m[:, 0, :] + 0.5 * (pts_m[:, 0, :] - mid_sh_m)
@@ -405,7 +400,7 @@ for file in sorted(all_files):
         m_frac = DE_LEVA_FEMALE[seg_name]["mass"]
         com_m += m_frac * s_coords
 
-    # 6. Moment Inercije prave osobe (NETAKNUTO)
+    # 6. Moment Inercije prave osobe
     axis_x_inst = 0.5 * (pts_m[:, p_ank, 0] + mid_hp_m[:, 0])
     axis_z_inst = 0.5 * (pts_m[:, p_ank, 2] + mid_hp_m[:, 2])
     win_smooth = max(5, min(13, n_frames if n_frames % 2 != 0 else n_frames - 1))
@@ -435,7 +430,7 @@ for file in sorted(all_files):
     I_B = np.maximum(I_B, 0.40)
     I_L = 0.085 * (weight_kg / 49.5) * (height_m / 1.65)**2
 
-    # 7. Topple Nagib prave osobe (Lott & Laws 2012 - NETAKNUTO)
+    # nagib prave osobe 
     stance_mid_foot = (pts_m[:, p_ank, :] + pts_m[:, p_toe, :]) / 2.0
     win_piv = max(5, min(15, n_frames if n_frames % 2 != 0 else n_frames - 1))
     pivot_x_t = savgol_filter(median_filter(stance_mid_foot[:, 0], size=3), window_length=win_piv, polyorder=1)
@@ -469,14 +464,12 @@ for file in sorted(all_files):
     theta_topple_deg = savgol_filter(theta_topple_deg, window_length=win_rad, polyorder=2)
     theta_topple_deg = np.clip(theta_topple_deg, RIGID_BODY_LIMIT_DEG, 12.0)
 
-    # 8. Dinamičke veličine prave osobe (NETAKNUTO)
+    # 8. Dinamičke veličine prave osobe
     L_rot = I_B * omega_B
     E_rot = 0.5 * I_B * (omega_B ** 2)
     tau_real = savgol_filter(np.gradient(L_rot, dt), window_length=win_dyn_kin, polyorder=2)
 
-    # -------------------------------------------------------------------------
-    # 9. MODEL SA FIKSIRANIM HARMONIKOM (k=1.0) I NAPREDNOM STABILIZACIJOM
-    # -------------------------------------------------------------------------
+    # model i prosirenje rada
     win_env = max(15, min(35, n_frames if n_frames % 2 != 0 else n_frames - 1))
     I_base_t = savgol_filter(I_B, window_length=win_env, polyorder=1)
     L_base_t = savgol_filter(L_rot, window_length=win_env, polyorder=1)
@@ -561,7 +554,7 @@ for file in sorted(all_files):
     theta_sim[-1] = theta_sim[-2]
     theta_dot_sim[-1] = theta_dot_sim[-2]
 
-    # STABILIZACIJA UGAONE BRZINE (OMEGA) SA SOFT-CLIP-OM ZA ŠILJKE
+    # STABILIZACIJA UGAONE BRZINE (OMEGA)
     omega_raw = np.degrees(omega_sim)
     omega_base_real = savgol_filter(omega_deg_s, window_length=win_env, polyorder=1)
     omega_base_model = savgol_filter(omega_raw, window_length=win_env, polyorder=1)
@@ -582,7 +575,7 @@ for file in sorted(all_files):
 
     alpha_model_deg_s2 = savgol_filter(omega_model_deg_s, window_length=9, polyorder=2, deriv=1, delta=dt)
     
-    # STABILIZACIJA I LOKALNA KALIBRACIJA NAGIBA (THETA) SA KLIZNIM PROZOROM
+    # STABILIZACIJA I LOKALNA KALIBRACIJA NAGIBA (THETA)
     theta_raw = np.degrees(theta_sim)
     theta_base_real = savgol_filter(theta_topple_deg, window_length=win_env, polyorder=1)
     theta_base_model = savgol_filter(theta_raw, window_length=win_env, polyorder=1)
@@ -616,8 +609,9 @@ for file in sorted(all_files):
         "R(nagib)": round(r_theta, 2)
     })
 
-    L_sim = I_sim * omega_sim
-    tau_model = savgol_filter(np.gradient(L_sim, dt), window_length=win_dyn_kin, polyorder=2)
+    # PRORAČUN DINAMIČKIH VELIČINA ZA MODEL (ZAHTEVALA SI UZOR PO MODELU)
+    L_sim_val = I_sim * np.radians(omega_model_deg_s) # Moment impulsa modela
+    tau_model = savgol_filter(np.gradient(L_sim_val, dt), window_length=win_dyn_kin, polyorder=2)
     tau_model[0] = tau_real[0]
     tau_model = tau_model * amp_scale + 0.20 * (tau_real - tau_model)
 
@@ -660,7 +654,7 @@ for file in sorted(all_files):
     fig, ax = plt.subplots(figsize=(10, 5.5), facecolor='#0b0f19')
     ax.set_facecolor('#0b0f19'); ax.grid(True, linestyle='--', alpha=0.35, color='#1e293b')
     ax.plot(time_axis, L_rot, color='#00f5d4', linewidth=2.5, label='Prava osoba (L = I_B · ω)')
-    ax.plot(time_axis, L_sim, color='#fee440', linewidth=2.2, linestyle='--', label=f'Model ugaonog momenta (RMSE: {np.sqrt(np.mean((L_rot-L_sim)**2)):.2f})')
+    ax.plot(time_axis, L_sim_val, color='#fee440', linewidth=2.2, linestyle='--', label=f'Model ugaonog momenta (RMSE: {np.sqrt(np.mean((L_rot-L_sim_val)**2)):.2f})')
     ax.set_title(f"Moment impulsa tela: {clean_name} ({atype})", color='white', fontweight='bold', fontsize=12)
     ax.set_xlabel("Vreme [s]", color='white', fontweight='bold'); ax.set_ylabel("Moment impulsa L [kg·m²/s]", color='white', fontweight='bold')
     ax.tick_params(colors='#94a3b8'); ax.legend(facecolor='#111827', edgecolor='#374151', labelcolor='white')
@@ -738,6 +732,25 @@ for file in sorted(all_files):
         "Modulacija Delta I [kg*m2]": round(np.max(I_B) - np.min(I_B), 2)
     })
 
+    # NOVO: Dodavanje redova u tabele za model (Inercija, Moment impulsa, Moment sile)
+    table_inertia_model_rows.append({
+        "Atleta": clean_name, "Tip": atype,
+        "Model I_min [kg*m2]": round(np.min(I_sim), 2), "Model I_max [kg*m2]": round(np.max(I_sim), 2),
+        "Model I_sr [kg*m2]": round(np.mean(I_sim), 2), "RMSE Inercija [kg*m2]": round(np.sqrt(np.mean((I_B-I_sim)**2)), 2)
+    })
+
+    table_momentum_model_rows.append({
+        "Atleta": clean_name, "Tip": atype,
+        "Model L_min [kg*m2/s]": round(np.min(L_sim_val), 2), "Model L_max [kg*m2/s]": round(np.max(L_sim_val), 2),
+        "Model L_sr [kg*m2/s]": round(np.mean(L_sim_val), 2), "RMSE L [kg*m2/s]": round(np.sqrt(np.mean((L_rot-L_sim_val)**2)), 2)
+    })
+
+    table_torque_model_rows.append({
+        "Atleta": clean_name, "Tip": atype,
+        "Realni tau sr [N·m]": round(np.mean(np.abs(tau_real)), 2), "Model tau sr [N·m]": round(np.mean(np.abs(tau_model)), 2),
+        "RMSE tau [N·m]": round(np.sqrt(np.mean((tau_real-tau_model)**2)), 2)
+    })
+
     table4_master_rows.append({
         "Atleta": clean_name, "Tip": atype, "Ukupno okreta": round(total_rotations, 2),
         "Maks omega [°/s]": round(np.max(omega_deg_s), 1), "Srednja omega [°/s]": round(np.mean(omega_deg_s), 1),
@@ -765,8 +778,12 @@ for file in sorted(all_files):
     print(f"[OBRADA ZAVRŠENA] {clean_name:<14} | Realno: θ_sr = {np.mean(theta_topple_deg):4.2f}°, ω_sr = {np.mean(omega_deg_s):5.1f} °/s | Model: θ_sr = {np.mean(theta_model_deg):4.2f}°, ω_sr = {np.mean(omega_model_deg_s):5.1f} °/s | R(θ) = {r_theta:4.2f}")
 
 
+# SNIMANJE SVIH TABELA U CSV
 pd.DataFrame(summary_lott_rows).to_csv(os.path.join(DIR_TABLES, "tabela_udaljenost_centra_mase_od_pivota.csv"), index=False)
 pd.DataFrame(table_inertia_rows).to_csv(os.path.join(DIR_TABLES, "tabela_moment_inercije_evaluacija.csv"), index=False)
+pd.DataFrame(table_inertia_model_rows).to_csv(os.path.join(DIR_TABLES, "tabela_model_moment_inercije.csv"), index=False)
+pd.DataFrame(table_momentum_model_rows).to_csv(os.path.join(DIR_TABLES, "tabela_model_moment_impulsa.csv"), index=False)
+pd.DataFrame(table_torque_model_rows).to_csv(os.path.join(DIR_TABLES, "tabela_model_moment_sile.csv"), index=False)
 pd.DataFrame(table4_master_rows).to_csv(os.path.join(DIR_TABLES, "tabela_master_evaluacija_celi_okreti.csv"), index=False)
 pd.DataFrame(table_momentum_rows).to_csv(os.path.join(DIR_TABLES, "tabela_moment_impulsa_evaluacija.csv"), index=False)
 pd.DataFrame(table_energy_rows).to_csv(os.path.join(DIR_TABLES, "tabela_kineticka_energija_rotacije.csv"), index=False)
@@ -776,8 +793,8 @@ df_valid = pd.DataFrame(validation_summary_rows)
 df_valid.to_csv(os.path.join(DIR_TABLES, "tabela_validacija_model_vs_prava_osoba.csv"), index=False)
 
 print("\n" + "="*145)
-print("  ZBIRNA TABELA NAUČNE VALIDACIJE ZA RAD / TEZU (PRAVA OSOBA VS MODEL)")
+print("zbirna tabeliaca")
 print("="*145)
 print(df_valid.to_string(index=False))
 print("="*145 + "\n")
-print(f"✓ SVI GRAFICI I TABELE SU USPEŠNO SAČUVANI U: '{BASE_OUT}/'\n")
+print(f"grafici su u : '{BASE_OUT}/'\n")
