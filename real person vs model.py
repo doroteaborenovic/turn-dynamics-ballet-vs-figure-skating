@@ -7,10 +7,12 @@ import matplotlib.pyplot as plt
 from scipy.interpolate import PchipInterpolator
 from scipy.signal import savgol_filter
 from scipy.ndimage import median_filter
+from scipy.integrate import solve_ivp
 
 warnings.filterwarnings('ignore')
 
-# ovde idu podaci i parametri 
+# parametri i poznate info 
+
 TIME_WINDOWS = {
     "trusova":       (6.0, 10.0),
     "khoreva":       (0.0, 4.0),
@@ -24,20 +26,18 @@ TIME_WINDOWS = {
 }
 
 ATHLETE_DB = {
-    "marianela":    {"height": 1.74, "weight": 52.0, "type": "Balet", "shoe_size": 39},
-    "kapitonova":   {"height": 1.68, "weight": 48.0, "type": "Balet", "shoe_size": 38},
-    "khoreva":      {"height": 1.73, "weight": 47.0, "type": "Balet", "shoe_size": 39},
-    "trusova":      {"height": 1.66, "weight": 50.0, "type": "Umetničko klizanje", "shoe_size": 37},
-    "valieva":      {"height": 1.60, "weight": 44.0, "type": "Umetničko klizanje", "shoe_size": 36},
-    "kamilavalieva":{"height": 1.60, "weight": 44.0, "type": "Umetničko klizanje", "shoe_size": 36},
-    "shcherbakova": {"height": 1.61, "weight": 42.0, "type": "Umetničko klizanje", "shoe_size": 36},
-    "scerebakova":  {"height": 1.61, "weight": 42.0, "type": "Umetničko klizanje", "shoe_size": 36},
-    "liu":          {"height": 1.58, "weight": 45.0, "type": "Umetničko klizanje", "shoe_size": 36}
+    "marianela":    {"height": 1.74, "weight": 52.0, "type": "Balet", "shoe_size": 39, "mu": 0.30, "r_eff": 0.025},
+    "kapitonova":   {"height": 1.68, "weight": 48.0, "type": "Balet", "shoe_size": 38, "mu": 0.30, "r_eff": 0.025},
+    "khoreva":      {"height": 1.73, "weight": 47.0, "type": "Balet", "shoe_size": 39, "mu": 0.30, "r_eff": 0.025},
+    "trusova":      {"height": 1.66, "weight": 50.0, "type": "Umetničko klizanje", "shoe_size": 37, "mu": 0.006, "r_eff": 0.015},
+    "valieva":      {"height": 1.60, "weight": 44.0, "type": "Umetničko klizanje", "shoe_size": 36, "mu": 0.006, "r_eff": 0.015},
+    "kamilavalieva":{"height": 1.60, "weight": 44.0, "type": "Umetničko klizanje", "shoe_size": 36, "mu": 0.006, "r_eff": 0.015},
+    "shcherbakova": {"height": 1.61, "weight": 42.0, "type": "Umetničko klizanje", "shoe_size": 36, "mu": 0.006, "r_eff": 0.015},
+    "scerebakova":  {"height": 1.61, "weight": 42.0, "type": "Umetničko klizanje", "shoe_size": 36, "mu": 0.006, "r_eff": 0.015},
+    "liu":          {"height": 1.58, "weight": 45.0, "type": "Umetničko klizanje", "shoe_size": 36, "mu": 0.006, "r_eff": 0.015}
 }
 
-FOOT_SIZES_CM = {36: 22.9, 37: 23.8, 38: 24.3, 39: 25.1, 40: 25.4}
-
-# De Leva 1996 - Ženska raspodela mase i položaja težišta segmenata (PRAVA OSOBA)
+# de leva model 
 DE_LEVA_FEMALE = {
     "Head":        {"mass": 0.0668, "pos": 0.5000},
     "Trunk":       {"mass": 0.4257, "pos": 0.4360},
@@ -56,46 +56,17 @@ DE_LEVA_FEMALE = {
 }
 
 G_ACC = 9.81
-THETA_MAX_LOTT_LAWS = 9.3
-RIGID_BODY_LIMIT_DEG = 1.0
+THETA_MAX_LOTT_LAWS = 9.3   # Prag pada / stabilne ravnoteže Lott & Laws (2012) [°]
+RIGID_BODY_LIMIT_DEG = 1.0  # Fizički limit krutog tela [°]
+THETA_INITIAL_TOP_DEG = 1.5 # Početni nagib čigre [°]
+T_SIMULATION_LONG = 650.0
 
-BASE_OUT = "konacnirezultati"
+BASE_OUT = "konacnirezultaticigra_trenje"
+DIR_MASTER_5PANEL = os.path.join(BASE_OUT, "grafici_5panel_cigra_vs_osoba")
+DIR_LONG_SIM      = os.path.join(BASE_OUT, "grafici_dugotrajna_simulacija_300s_5min")
+DIR_TABLES        = os.path.join(BASE_OUT, "tabele_rezultati")
 
-DIR_STAB_INDIVIDUAL = os.path.join(BASE_OUT, "grafici_ravnoteza_pojedinacni")
-DIR_STAB_SUMMARY    = os.path.join(BASE_OUT, "grafici_ravnoteza_zbirni")
-DIR_INER_INDIVIDUAL = os.path.join(BASE_OUT, "grafici_inercija_pojedinacni")
-DIR_INER_SUMMARY    = os.path.join(BASE_OUT, "grafici_inercija_zbirni")
-DIR_KIN_OMEGA       = os.path.join(BASE_OUT, "grafici_ugaona_brzina_komparacija")
-DIR_KIN_ALPHA       = os.path.join(BASE_OUT, "grafici_ugaono_ubrzanje_komparacija")
-DIR_MOM_INDIVIDUAL  = os.path.join(BASE_OUT, "grafici_moment_impulsa_pojedinacni")
-DIR_MOM_SUMMARY     = os.path.join(BASE_OUT, "grafici_moment_impulsa_zbirni")
-DIR_ENG_INDIVIDUAL  = os.path.join(BASE_OUT, "grafici_kineticka_energija_pojedinacni")
-DIR_ENG_SUMMARY     = os.path.join(BASE_OUT, "grafici_kineticka_energija_zbirni")
-DIR_KNEE_IND        = os.path.join(BASE_OUT, "grafici_koleno_stajne_noge_pojedinacni")
-DIR_KNEE_SUM        = os.path.join(BASE_OUT, "grafici_koleno_stajne_noge_zbirni")
-DIR_XZ_TRAJ         = os.path.join(BASE_OUT, "grafici_xz_putanje_com")
-DIR_TABLES          = os.path.join(BASE_OUT, "tabele_rezultati")
-
-DIR_MV_ROOT   = os.path.join(BASE_OUT, "grafici_model_vs_prava_osoba")
-DIR_MV_OMEGA  = os.path.join(DIR_MV_ROOT, "ugaona_brzina")
-DIR_MV_INER   = os.path.join(DIR_MV_ROOT, "moment_inercije")
-DIR_MV_ALPHA  = os.path.join(DIR_MV_ROOT, "ugaono_ubrzanje")
-DIR_MV_MOM    = os.path.join(DIR_MV_ROOT, "moment_impulsa")
-DIR_MV_TORQUE = os.path.join(DIR_MV_ROOT, "moment_sile")
-DIR_MV_THETA  = os.path.join(DIR_MV_ROOT, "ugao_nagiba")
-
-ALL_DIRS = [
-    DIR_STAB_INDIVIDUAL, DIR_STAB_SUMMARY,
-    DIR_INER_INDIVIDUAL, DIR_INER_SUMMARY,
-    DIR_KIN_OMEGA, DIR_KIN_ALPHA,
-    DIR_MOM_INDIVIDUAL, DIR_MOM_SUMMARY,
-    DIR_ENG_INDIVIDUAL, DIR_ENG_SUMMARY,
-    DIR_KNEE_IND, DIR_KNEE_SUM,
-    DIR_XZ_TRAJ, DIR_TABLES,
-    DIR_MV_OMEGA, DIR_MV_INER, DIR_MV_ALPHA, DIR_MV_MOM, DIR_MV_TORQUE, DIR_MV_THETA
-]
-
-for d in ALL_DIRS:
+for d in [BASE_OUT, DIR_MASTER_5PANEL, DIR_LONG_SIM, DIR_TABLES]:
     os.makedirs(d, exist_ok=True)
 
 INPUT_DIR = "kinematika_rezultati"
@@ -104,7 +75,9 @@ if not os.path.exists(INPUT_DIR):
 if not os.path.exists(INPUT_DIR):
     INPUT_DIR = "."
 
-# interpoalcija matematicke funkcije i to 
+PALETTE_COLORS = ["#38bdf8", "#fb7185", "#34d399", "#facc15", "#a78bfa", "#f472b6", "#4ade80", "#00f5d4", "#ff5400"]
+
+# funkcijice 
 
 def clean_and_interpolate_signal(arr, vis=None, vis_threshold=0.35):
     arr = np.asarray(arr, dtype=float).copy()
@@ -147,15 +120,6 @@ def clean_and_interpolate_signal(arr, vis=None, vis_threshold=0.35):
 def interp_seg(p_prox, p_dist, ratio):
     return p_prox + ratio * (p_dist - p_prox)
 
-def calculate_angle_3d_series(a, b, c):
-    ba = a - b
-    bc = c - b
-    norm_ba = np.linalg.norm(ba, axis=1)
-    norm_bc = np.linalg.norm(bc, axis=1)
-    dot_prod = np.sum(ba * bc, axis=1)
-    cosine_angle = np.clip(dot_prod / (norm_ba * norm_bc + 1e-7), -1.0, 1.0)
-    return np.degrees(np.arccos(cosine_angle))
-
 def compute_fused_torso_orientation_3d(pts_m):
     n = len(pts_m)
     angles = np.zeros(n)
@@ -193,7 +157,8 @@ def compute_fused_torso_orientation_3d(pts_m):
 
 def track_strictly_monotonic_spin(raw_angles, is_skater=True):
     n = len(raw_angles)
-    if n < 2: return np.zeros(n)
+    if n < 2:
+        return np.zeros(n)
         
     dphi = np.arctan2(np.sin(np.diff(raw_angles)), np.cos(np.diff(raw_angles)))
     valid = dphi[np.abs(dphi) > 0.03]
@@ -223,58 +188,124 @@ def track_strictly_monotonic_spin(raw_angles, is_skater=True):
     theta_smooth = savgol_filter(theta_continuous, window_length=win, polyorder=2)
     return np.maximum(theta_smooth, 0.0)
 
-# glavna obrada
+# impelmentacija cigrice 
+
+def solve_kovalevskaya_exact_friction(theta_0_rad, omega_0_rad_s, J_phys, m_kg, mu_friction, r_contact, time_eval):
+    tau_fric = mu_friction * m_kg * G_ACC * r_contact
+    beta = tau_fric / max(0.1, (J_phys * omega_0_rad_s))
+
+    n1_0 = np.sin(theta_0_rad)
+    n2_0 = 0.0
+    n3_0 = np.cos(theta_0_rad)
+
+    m1_0 = 0.0
+    m2_0 = 0.0
+    m3_0 = 0.5 * omega_0_rad_s
+
+    y0 = [m1_0, m2_0, m3_0, n1_0, n2_0, n3_0, 0.0]
+
+    def deriv(t, y):
+        m1, m2, m3, n1, n2, n3, _ = y
+        dm1 = m2 * m3 - beta * m1
+        dm2 = - (m3 * m1 + 0.5 * n3) - beta * m2
+        dm3 = 0.5 * n2 - beta * m3
+
+        dn1 = 2.0 * m3 * n2 - m2 * n3
+        dn2 = m1 * n3 - 2.0 * m3 * n1
+        dn3 = m2 * n1 - m1 * n2
+
+        d_rot = 2.0 * m3
+        return [dm1, dm2, dm3, dn1, dn2, dn3, d_rot]
+
+    def fall_event(t, y):
+        th = np.arccos(np.clip(y[5], -1.0, 1.0))
+        return th - np.radians(THETA_MAX_LOTT_LAWS)
+    fall_event.terminal = True
+    fall_event.direction = 1
+
+    sol = solve_ivp(deriv, (time_eval[0], time_eval[-1]), y0, t_eval=time_eval, events=fall_event, method='RK45', rtol=1e-7, atol=1e-7)
+
+    t_sol = sol.t
+    m1 = sol.y[0]
+    m2 = sol.y[1]
+    m3 = sol.y[2]
+    n3 = np.clip(sol.y[5], -1.0, 1.0)
+    rot_cum = sol.y[6] / (2.0 * np.pi)
+
+    theta_deg_raw = np.degrees(np.arccos(n3))
+    omega_top_rad_s_raw = np.sqrt(m1**2 + m2**2 + (2.0 * m3)**2)
+    omega_top_deg_s_raw = np.degrees(omega_top_rad_s_raw)
+
+    if len(t_sol) > 1:
+        alpha_top_deg_s2_raw = np.gradient(omega_top_deg_s_raw, t_sol)
+    else:
+        alpha_top_deg_s2_raw = np.zeros_like(omega_top_deg_s_raw)
+
+    L_top_raw = J_phys * omega_top_rad_s_raw
+    E_k_top_raw = 0.5 * J_phys * (m1**2 + m2**2 + 2.0 * (m3**2))
+
+    if len(sol.t_events[0]) > 0:
+        has_fallen = True
+        t_fall = float(sol.t_events[0][0])
+        turns_fall = float(np.interp(t_fall, t_sol, rot_cum))
+    else:
+        has_fallen = False
+        t_fall = float(time_eval[-1])
+        turns_fall = float(rot_cum[-1])
+
+    delta_E_k = float(E_k_top_raw[0] - E_k_top_raw[-1])
+
+    def reindex_to_time_eval(arr):
+        if not has_fallen or (len(t_sol) == len(time_eval) and np.allclose(t_sol, time_eval)):
+            return arr
+        out = np.full(len(time_eval), np.nan, dtype=float)
+        mask = time_eval <= (t_fall + 1e-5)
+        if np.any(mask):
+            out[mask] = np.interp(time_eval[mask], t_sol, arr)
+        return out
+
+    theta_deg = reindex_to_time_eval(theta_deg_raw)
+    omega_top_deg_s = reindex_to_time_eval(omega_top_deg_s_raw)
+    alpha_top_deg_s2 = reindex_to_time_eval(alpha_top_deg_s2_raw)
+    L_top = reindex_to_time_eval(L_top_raw)
+    E_k_top = reindex_to_time_eval(E_k_top_raw)
+
+    return theta_deg, omega_top_deg_s, alpha_top_deg_s2, L_top, E_k_top, t_fall, turns_fall, beta, delta_E_k, has_fallen, t_sol, theta_deg_raw, omega_top_deg_s_raw
+
+# ovde ide glavna obradica kao simulacija i to 
+
 all_files = glob.glob(os.path.join(INPUT_DIR, "*_kinematics.csv"))
 if not all_files:
     all_files = glob.glob(os.path.join(INPUT_DIR, "*.csv"))
 all_files = [f for f in all_files if "SUMARNA" not in f and "popravljeno" not in f and "fizika_" not in f]
 
-global_topple_dict = {}
-global_cycles_topple = {}
-summary_lott_rows = []
-global_inertia_dict = {}
-global_cycles_inertia = {}
-table_inertia_rows = []
-table_inertia_model_rows = [] # tabela za model inercije
-table4_master_rows = []
-global_momentum_dict = {}
-global_cycles_momentum = {}
-table_momentum_rows = []
-table_momentum_model_rows = [] # tabela za moemnt impulsa
-table_torque_model_rows = [] # tabela za moment sile
-global_energy_dict = {}
-global_cycles_energy = {}
-table_energy_rows = []
-global_knee_dict = {}
-global_cycles_knee = {}
-table_knee_rows = []
-validation_summary_rows = []
+master_rows_4s = []
+master_rows_300s = []
+long_sim_data = {}
 processed_names = set()
 
 print("\n" + "="*145)
-print(" model vs prava osoba ")
+print(f"  POKRETANJE EVALUACIJE: ČIGRA KOVALJEVSKE SA TRENJEM (4s video + {T_SIMULATION_LONG:.0f}s DUGOTRAJNA SIMULACIJA / 5 MINUTA)")
 print("="*145 + "\n")
 
 for file in sorted(all_files):
     df_raw = pd.read_csv(file)
     filename_lower = os.path.basename(file).lower().replace("_", "").replace("-", "")
-    
     athlete_key = next((k for k in ATHLETE_DB if k in filename_lower), None)
-    athlete_data = ATHLETE_DB.get(athlete_key, {"height": 1.65, "weight": 50.0, "type": "Balet", "shoe_size": 38})
+    athlete_data = ATHLETE_DB.get(athlete_key, {"height": 1.65, "weight": 50.0, "type": "Balet", "shoe_size": 38, "mu": 0.30, "r_eff": 0.025})
     atype = athlete_data["type"]
     height_m = athlete_data["height"]
     weight_kg = athlete_data["weight"]
-    shoe_size = athlete_data["shoe_size"]
+    mu_val = athlete_data["mu"]
+    r_eff_val = athlete_data["r_eff"]
     is_skater = "klizanje" in atype.lower()
     clean_name = athlete_key.upper() if athlete_key else os.path.basename(file).split('_')[0].upper()
 
-    if clean_name in processed_names:
+    if clean_name in processed_names or ("x_0" not in df_raw.columns and "X_0" not in df_raw.columns): 
         continue
     processed_names.add(clean_name)
 
-    if "x_0" not in df_raw.columns and "X_0" not in df_raw.columns:
-        continue
-
+    # Kropovanje intervala rotacije
     if "timestamp_sec" in df_raw.columns:
         t_arr = df_raw["timestamp_sec"].values
     elif "Time_s" in df_raw.columns:
@@ -283,16 +314,17 @@ for file in sorted(all_files):
         t_arr = np.arange(len(df_raw)) / 30.0
 
     t_start, t_end = TIME_WINDOWS.get(athlete_key, (0.0, 4.0))
+    video_duration = t_end - t_start
     mask = (t_arr >= t_start) & (t_arr <= t_end)
     df_crop = df_raw[mask].copy().reset_index(drop=True)
     if len(df_crop) < 15:
         df_crop = df_raw.iloc[:120].copy().reset_index(drop=True)
 
     n_frames = len(df_crop)
-    dt = (t_end - t_start) / max(1, (n_frames - 1))
+    dt = video_duration / n_frames if n_frames > 0 else 1.0 / 30.0
     time_axis = np.arange(n_frames) * dt
 
-    # 1. PCHIP filtriranje svih 33 kljucne tacke tela
+    # 1. PCHIP filtriranje svih 33 markera
     pts_array = np.zeros((n_frames, 33, 3))
     for lm in range(33):
         vis_col = f"vis_{lm}" if f"vis_{lm}" in df_crop.columns else f"VIS_{lm}"
@@ -302,7 +334,7 @@ for file in sorted(all_files):
             if col in df_crop.columns:
                 pts_array[:, lm, ax_idx] = clean_and_interpolate_signal(df_crop[col].values, vis=vis_series, vis_threshold=0.35)
 
-    # 2. Detekcija pivot noge
+    # 2. Detekcija pivot noge (stajne noge)
     var_l = np.median(np.abs(pts_array[:, 31, :2] - np.median(pts_array[:, 31, :2], axis=0))) + \
             np.median(np.abs(pts_array[:, 27, :2] - np.median(pts_array[:, 27, :2], axis=0)))
     var_r = np.median(np.abs(pts_array[:, 32, :2] - np.median(pts_array[:, 32, :2], axis=0))) + \
@@ -314,7 +346,6 @@ for file in sorted(all_files):
     p_ank = 27 if planted_side == "left" else 28
     p_toe = 31 if planted_side == "left" else 32
     pivot_name = "Leva noga" if planted_side == "left" else "Desna noga"
-    pivot_str = "Leva (31)" if planted_side == "left" else "Desna (32)"
 
     # 3. Metričko skaliranje
     mid_shoulder = (pts_array[:, 11, :] + pts_array[:, 12, :]) / 2.0
@@ -332,6 +363,7 @@ for file in sorted(all_files):
     scale = height_m / med_h
     pts_m = pts_array * scale
 
+    # Anatomski filter udaljenosti od karlice
     pelvis_center = (pts_m[:, 23, :] + pts_m[:, 24, :]) / 2.0
     for lm in range(33):
         dist_from_pelvis = np.linalg.norm(pts_m[:, lm, :] - pelvis_center, axis=1)
@@ -342,22 +374,18 @@ for file in sorted(all_files):
                 s = pd.Series(pts_m[:, lm, ax_i])
                 pts_m[:, lm, ax_i] = s.interpolate(method='linear', limit_direction='both').bfill().ffill().values
 
+    # Kalibracija Z dubine
     hip_width_real = 0.17 * height_m
     hip_width_meas = np.median(np.linalg.norm(pts_m[:, 23, :2] - pts_m[:, 24, :2], axis=1))
     z_correction = np.clip(hip_width_real / (hip_width_meas + 1e-5), 0.35, 0.65)
     pts_m[:, :, 2] = pts_m[:, :, 2] * z_correction
 
-    # 4. Kinematika rotacije prave osobe
+    # 4. Kinematika rotacije osobe (Ugaona brzina omega i ubrzanje alfa)
     raw_angles_B = compute_fused_torso_orientation_3d(pts_m)
     theta_B = track_strictly_monotonic_spin(raw_angles_B, is_skater=is_skater)
     
     total_displacement_deg = np.degrees(theta_B[-1])
-    total_rotations = total_displacement_deg / 360.0
-    full_rotations_count = int(np.floor(total_rotations))
-
-    dense_samples = 101
-    phase_x = np.linspace(0, 100, dense_samples)
-    theta_deg = np.degrees(theta_B)
+    total_rotations_4s = total_displacement_deg / 360.0
 
     win_dyn_kin = max(11, min(25, n_frames if n_frames % 2 != 0 else n_frames - 1))
     omega_B = savgol_filter(theta_B, window_length=win_dyn_kin, polyorder=2, deriv=1, delta=dt)
@@ -366,7 +394,9 @@ for file in sorted(all_files):
     omega_deg_s = np.degrees(omega_B)
     alpha_deg_s2 = savgol_filter(omega_deg_s, window_length=win_dyn_kin, polyorder=2, deriv=1, delta=dt)
 
-    # 5. Segmenti i centri mase - De Leva 1996
+    omega_0_rad_s = float(omega_B[0])
+
+    # 5. Segmenti i centri mase (De Leva 1996)
     mid_sh_m = (pts_m[:, 11, :] + pts_m[:, 12, :]) / 2.0
     mid_hp_m = (pts_m[:, 23, :] + pts_m[:, 24, :]) / 2.0
     head_v_m = pts_m[:, 0, :] + 0.5 * (pts_m[:, 0, :] - mid_sh_m)
@@ -400,9 +430,10 @@ for file in sorted(all_files):
         m_frac = DE_LEVA_FEMALE[seg_name]["mass"]
         com_m += m_frac * s_coords
 
-    # 6. Moment Inercije prave osobe
+    # 6. Moment inercije tela (I_B)
     axis_x_inst = 0.5 * (pts_m[:, p_ank, 0] + mid_hp_m[:, 0])
     axis_z_inst = 0.5 * (pts_m[:, p_ank, 2] + mid_hp_m[:, 2])
+    
     win_smooth = max(5, min(13, n_frames if n_frames % 2 != 0 else n_frames - 1))
     axis_x = savgol_filter(axis_x_inst, window_length=win_smooth, polyorder=2)
     axis_z = savgol_filter(axis_z_inst, window_length=win_smooth, polyorder=2)
@@ -428,9 +459,13 @@ for file in sorted(all_files):
     win_dyn_iner = max(9, min(17, n_frames if n_frames % 2 != 0 else n_frames - 1))
     I_B = savgol_filter(I_B_raw, window_length=win_dyn_iner, polyorder=2)
     I_B = np.maximum(I_B, 0.40)
-    I_L = 0.085 * (weight_kg / 49.5) * (height_m / 1.65)**2
+    J_phys_0 = float(I_B[0])
 
-    # nagib prave osobe 
+    # Moment impulsa L i rotaciona kinetička energija E_k realne osobe
+    L_rot_person = I_B * omega_B             # [kg*m^2/s]
+    E_rot_person = 0.5 * I_B * (omega_B ** 2) # [J]
+
+    # 7. Ugaoni nagib realne osobe (Lott & Laws 2012)
     stance_mid_foot = (pts_m[:, p_ank, :] + pts_m[:, p_toe, :]) / 2.0
     win_piv = max(5, min(15, n_frames if n_frames % 2 != 0 else n_frames - 1))
     pivot_x_t = savgol_filter(median_filter(stance_mid_foot[:, 0], size=3), window_length=win_piv, polyorder=1)
@@ -457,344 +492,196 @@ for file in sorted(all_files):
     h_com = np.full(n_frames, 0.56 * height_m)
     r_min_phys = h_com * np.tan(np.radians(RIGID_BODY_LIMIT_DEG))
     d_com_m = np.maximum(d_com_m, r_min_phys)
-    d_com_cm = d_com_m * 100.0
 
     theta_topple_rad = np.arctan2(d_com_m, h_com)
     theta_topple_deg = np.degrees(theta_topple_rad)
     theta_topple_deg = savgol_filter(theta_topple_deg, window_length=win_rad, polyorder=2)
     theta_topple_deg = np.clip(theta_topple_deg, RIGID_BODY_LIMIT_DEG, 12.0)
 
-    # 8. Dinamičke veličine prave osobe
-    L_rot = I_B * omega_B
-    E_rot = 0.5 * I_B * (omega_B ** 2)
-    tau_real = savgol_filter(np.gradient(L_rot, dt), window_length=win_dyn_kin, polyorder=2)
+    # -------------------------------------------------------------------------
+    # 8. EGZAKTNO REŠAVANJE ČIGRE (KRATAK HORIZONT - PROZOR VIDEA)
+    # -------------------------------------------------------------------------
+    theta_deg_top, omega_deg_s_top, alpha_deg_s2_top, L_top, E_k_top, t_fall_4s, turns_fall_4s, beta_calc, delta_E_k_4s, has_fallen_4s, _, _, _ = solve_kovalevskaya_exact_friction(
+        theta_0_rad=np.radians(THETA_INITIAL_TOP_DEG),
+        omega_0_rad_s=omega_0_rad_s,
+        J_phys=J_phys_0,
+        m_kg=weight_kg,
+        mu_friction=mu_val,
+        r_contact=r_eff_val,
+        time_eval=time_axis
+    )
 
-    # model i prosirenje rada
-    win_env = max(15, min(35, n_frames if n_frames % 2 != 0 else n_frames - 1))
-    I_base_t = savgol_filter(I_B, window_length=win_env, polyorder=1)
-    L_base_t = savgol_filter(L_rot, window_length=win_env, polyorder=1)
-    
-    amp_scale = np.std(L_rot) / (np.std(L_base_t) + 1e-5)
-    amp_scale = np.clip(amp_scale, 1.2, 2.5)
+    # -------------------------------------------------------------------------
+    # 9. DUGOTRAJNA SIMULACIJA ČIGRE (HORIZONT: 300 SEKUNDI / 5 MINUTA)
+    # -------------------------------------------------------------------------
+    time_eval_long = np.linspace(0.0, T_SIMULATION_LONG, 6000)
+    _, _, _, _, _, t_fall_300s, turns_fall_300s, _, delta_E_k_300s, has_fallen_300s, t_sol_long, th_raw_long, w_raw_long = solve_kovalevskaya_exact_friction(
+        theta_0_rad=np.radians(THETA_INITIAL_TOP_DEG),
+        omega_0_rad_s=omega_0_rad_s,
+        J_phys=J_phys_0,
+        m_kg=weight_kg,
+        mu_friction=mu_val,
+        r_contact=r_eff_val,
+        time_eval=time_eval_long
+    )
 
-    I_fluc = np.abs(I_B - I_base_t)
-    delta_I_t = savgol_filter(I_fluc, window_length=win_env, polyorder=1) * amp_scale * 0.65
-    delta_I_t = np.clip(delta_I_t, 0.05, 0.35 * I_base_t)
+    long_sim_data[clean_name] = {
+        "type": atype, "t_sol": t_sol_long, "theta": th_raw_long, "omega": w_raw_long,
+        "t_fall": t_fall_300s, "turns": turns_fall_300s, "has_fallen": has_fallen_300s,
+        "mu": mu_val, "beta": beta_calc, "delta_Ek": delta_E_k_300s
+    }
 
-    L_fluc = np.abs(L_rot - L_base_t)
-    delta_L_t = savgol_filter(L_fluc, window_length=win_env, polyorder=1) * amp_scale * 0.75
+    # -------------------------------------------------------------------------
+    # 10. GRAFIK: 5-PANEL POREĐENJE SA REALNOM OSOBOM
+    # -------------------------------------------------------------------------
+    fig, axes = plt.subplots(5, 1, figsize=(12, 16), dpi=300, facecolor='#0b0f19', sharex=True)
+    for ax in axes:
+        ax.set_facecolor('#0b0f19')
+        ax.grid(True, linestyle='--', alpha=0.35, color='#1e293b')
+        ax.tick_params(colors='#94a3b8')
 
-    best_k_I = 1.0
-    best_k_theta = 1.0
+    status_4s_str = f"Pad čigre u {t_fall_4s:.2f}s (prelazak {THETA_MAX_LOTT_LAWS}°)" if has_fallen_4s else f"Stabilno (> {video_duration:.1f}s bez pada)"
 
-    I_detrend = I_B - I_base_t
-    L_detrend = L_rot - L_base_t
-    theta_detrend = theta_topple_deg - np.mean(theta_topple_deg)
+    axes[0].plot(time_axis, theta_deg_top, color='#38bdf8', linewidth=2.4, label=rf'Čigra Kovaljevske ($\mu={mu_val}$, $r_{{eff}}={r_eff_val*100:.1f}\text{{cm}}$, $\beta={beta_calc:.4f}$) $\theta_{{top}}(t)$ [°]')
+    axes[0].plot(time_axis, theta_topple_deg, color='#fb7185', linewidth=2.0, linestyle='--', label=f'Realna osoba ({clean_name}) $\\theta_{{person}}(t)$ [°]')
+    axes[0].axhline(THETA_MAX_LOTT_LAWS, color='#facc15', linestyle=':', linewidth=1.5, label=f'Lott & Laws prag pada ({THETA_MAX_LOTT_LAWS}°)')
+    axes[0].fill_between(time_axis, 0, THETA_MAX_LOTT_LAWS, color='#10b981', alpha=0.06, label='Zona stabilnosti')
+    axes[0].scatter([0], [THETA_INITIAL_TOP_DEG], color='#00ff88', s=70, zorder=6, label=f'Start: $\\theta_0 = {THETA_INITIAL_TOP_DEG:.1f}^\\circ$')
+    if has_fallen_4s:
+        axes[0].scatter([t_fall_4s], [THETA_MAX_LOTT_LAWS], color='#ff0055', s=90, zorder=7, edgecolors='white', linewidth=1.5, label=f'Pad čigre ($t={t_fall_4s:.2f}$s)')
+    axes[0].set_ylabel(r"Nagib $\theta$ [°]", fontsize=10, color='#94a3b8')
+    axes[0].set_ylim(0, max(14.0, np.nanmax(theta_topple_deg) + 2.0))
+    axes[0].legend(loc='upper right', facecolor='#111827', edgecolor='#374151', labelcolor='white', fontsize=8.2)
+    axes[0].set_title(f"DINAMIKA ROTACIJE I ČIGRA KOVALJEVSKE SA TRENJEM: {clean_name} ({atype.upper()})\n$r_{{eff}} = {r_eff_val*100:.1f}$ cm | Trenje: $\\mu = {mu_val}$ | {status_4s_str} | $\\omega_0 = {np.degrees(omega_0_rad_s):.1f}^\\circ$/s", fontsize=11.5, fontweight='bold', color='white', pad=10)
 
-    phase_offset_I = np.arctan2(np.sum(I_detrend * np.sin(theta_B)), np.sum(I_detrend * np.cos(theta_B)))
-    phase_offset_L = np.arctan2(np.sum(L_detrend * np.sin(theta_B)), np.sum(L_detrend * np.cos(theta_B)))
-    phase_offset_theta = np.arctan2(np.sum(theta_detrend * np.sin(theta_B)), np.sum(theta_detrend * np.cos(theta_B)))
+    axes[1].plot(time_axis, omega_deg_s_top, color='#38bdf8', linewidth=2.4, label=r'Čigra $\omega_{top}(t) = \sqrt{p^2+q^2+r^2}$ [°/s]')
+    axes[1].plot(time_axis, omega_deg_s, color='#ff007f', linewidth=2.0, linestyle='--', label=r'Realna osoba $\omega_{person}(t)$ [°/s]')
+    axes[1].scatter([0], [np.degrees(omega_0_rad_s)], color='#00ff88', s=70, zorder=6, label=f'Start: $\\omega_0 = {np.degrees(omega_0_rad_s):.1f}^\\circ$/s')
+    axes[1].set_ylabel(r"Ugaona brzina $\omega$ [°/s]", fontsize=10, color='#94a3b8')
+    axes[1].legend(loc='upper right', facecolor='#111827', edgecolor='#374151', labelcolor='white', fontsize=8.2)
 
-    I_topple = (1.0 / 3.0) * weight_kg * (height_m ** 2)
-    K_grav_crit = weight_kg * G_ACC * np.mean(h_com)
-    K_net = 1.10 * K_grav_crit
-    B_postural = 2.0 * np.sqrt(I_topple * K_net) * 0.32
-    theta_bias_rad = np.radians(np.mean(theta_topple_deg))
+    axes[2].plot(time_axis, alpha_deg_s2_top, color='#38bdf8', linewidth=2.4, label=r'Čigra $\alpha_{top}(t)$ [°/s²]')
+    axes[2].plot(time_axis, alpha_deg_s2, color='#a855f7', linewidth=2.0, linestyle='--', label=r'Realna osoba $\alpha_{person}(t)$ [°/s²]')
+    axes[2].axhline(0, color='#64748b', linestyle=':', linewidth=1.0)
+    axes[2].set_ylabel(r"Ubrzanje $\alpha$ [°/s²]", fontsize=10, color='#94a3b8')
+    axes[2].legend(loc='upper right', facecolor='#111827', edgecolor='#374151', labelcolor='white', fontsize=8.2)
 
-    L_sim = np.zeros(n_frames)
-    I_sim = np.zeros(n_frames)
-    omega_sim = np.zeros(n_frames)
-    theta_sim = np.zeros(n_frames)
-    theta_dot_sim = np.zeros(n_frames)
+    axes[3].plot(time_axis, L_top, color='#38bdf8', linewidth=2.4, label=r'Čigra $L_{top}(t)$ [kg·m²/s]')
+    axes[3].plot(time_axis, L_rot_person, color='#34d399', linewidth=2.0, linestyle='--', label=r'Realna osoba $L_{person}(t) = I_B\omega$ [kg·m²/s]')
+    axes[3].scatter([0], [L_rot_person[0]], color='#00ff88', s=70, zorder=6, label=f'Start: $L_0 = {L_rot_person[0]:.2f}$ kg·m²/s')
+    axes[3].set_ylabel(r"Moment $L$ [kg·m²/s]", fontsize=10.5, color='#94a3b8')
+    axes[3].legend(loc='upper right', facecolor='#111827', edgecolor='#374151', labelcolor='white', fontsize=8.2)
 
-    theta_sim[0] = np.radians(theta_topple_deg[0])
-    theta_dot_sim[0] = (np.radians(theta_topple_deg[1]) - np.radians(theta_topple_deg[0])) / dt
-    
-    I_sim[0] = I_B[0]
-    omega_sim[0] = omega_B[0]
-    L_sim[0] = L_rot[0]
+    axes[4].plot(time_axis, E_k_top, color='#38bdf8', linewidth=2.4, label=r'Čigra $E_{k,top}(t)$ [J]')
+    axes[4].plot(time_axis, E_rot_person, color='#f59e0b', linewidth=2.0, linestyle='--', label=r'Realna osoba $E_{k,person}(t) = \frac{1}{2}I_B\omega^2$ [J]')
+    axes[4].scatter([0], [E_rot_person[0]], color='#00ff88', s=70, zorder=6, label=f'Start: $E_{{k,0}} = {E_rot_person[0]:.2f}$ J')
+    axes[4].set_xlabel(r"Vreme $t$ [s]", fontsize=10.5, color='#94a3b8')
+    axes[4].set_ylabel(r"Energija $E_k$ [J]", fontsize=10, color='#94a3b8')
+    axes[4].set_xlim(0, video_duration)
+    axes[4].legend(loc='upper right', facecolor='#111827', edgecolor='#374151', labelcolor='white', fontsize=8.2)
 
-    n_sub = 5
-    dt_sub = dt / n_sub
+    plt.tight_layout()
+    plt.savefig(os.path.join(DIR_MASTER_5PANEL, f"komparacija_trenje_5panel_{clean_name.lower()}.png"), facecolor='#0b0f19')
+    plt.close()
 
-    for i in range(n_frames - 1):
-        th_curr = theta_sim[i]
-        th_dot_curr = theta_dot_sim[i]
-        
-        for sub_i in range(n_sub):
-            alpha_sub = sub_i / n_sub
-            phi_curr = (1.0 - alpha_sub) * theta_B[i] + alpha_sub * theta_B[i+1]
-            
-            target_theta_deg_sub = (1.0 - alpha_sub) * theta_topple_deg[i] + alpha_sub * theta_topple_deg[min(i+1, n_frames-1)]
-            target_theta_rad = np.radians(target_theta_deg_sub)
-
-            I_curr = max(I_base_t[i] + delta_I_t[i] * np.cos(best_k_I * phi_curr - phase_offset_I), 0.40 * I_base_t[i])
-            L_curr = max(L_base_t[i] + delta_L_t[i] * np.cos(best_k_I * phi_curr - phase_offset_L), 2.0)
-            om_curr = L_curr / I_curr
-
-            tau_wobble = 0.12 * K_net * np.sin(best_k_theta * phi_curr - phase_offset_theta) + 0.30 * K_net * (target_theta_rad - th_curr)
-            
-            th_ddot = (-K_net * (th_curr - theta_bias_rad) - B_postural * th_dot_curr + tau_wobble) / I_topple
-            th_dot_curr += th_ddot * dt_sub
-            th_curr += th_dot_curr * dt_sub
-            
-            if th_curr < np.radians(1.0):
-                th_curr = np.radians(1.0)
-                th_dot_curr = abs(th_dot_curr) * 0.25
-
-        I_sim[i+1] = I_curr
-        L_sim[i+1] = L_curr
-        omega_sim[i+1] = om_curr
-        theta_sim[i+1] = th_curr
-        theta_dot_sim[i+1] = th_dot_curr
-
-    I_sim[-1] = I_sim[-2]
-    L_sim[-1] = L_sim[-2]
-    omega_sim[-1] = omega_sim[-2]
-    theta_sim[-1] = theta_sim[-2]
-    theta_dot_sim[-1] = theta_dot_sim[-2]
-
-    # STABILIZACIJA UGAONE BRZINE (OMEGA)
-    omega_raw = np.degrees(omega_sim)
-    omega_base_real = savgol_filter(omega_deg_s, window_length=win_env, polyorder=1)
-    omega_base_model = savgol_filter(omega_raw, window_length=win_env, polyorder=1)
-    
-    real_fluct = omega_deg_s - omega_base_real
-    model_fluct = omega_raw - omega_base_model
-    std_model = np.std(model_fluct)
-    
-    model_fluct_soft = np.tanh(model_fluct / (2.2 * std_model + 1e-6)) * (2.2 * std_model)
-    omega_amp_ratio = np.clip(np.std(real_fluct) / (np.std(model_fluct_soft) + 1e-6), 0.75, 1.25)
-
-    omega_corrected = omega_base_model + omega_amp_ratio * model_fluct_soft
-    omega_corrected += 0.35 * (omega_base_real - omega_base_model)
-
-    omega_model_deg_s = savgol_filter(omega_corrected, window_length=5, polyorder=2)
-    omega_model_deg_s[0] = omega_deg_s[0]
-    omega_model_deg_s = np.maximum(omega_model_deg_s, np.degrees(floor_rad_s))
-
-    alpha_model_deg_s2 = savgol_filter(omega_model_deg_s, window_length=9, polyorder=2, deriv=1, delta=dt)
-    
-    # STABILIZACIJA I LOKALNA KALIBRACIJA NAGIBA (THETA)
-    theta_raw = np.degrees(theta_sim)
-    theta_base_real = savgol_filter(theta_topple_deg, window_length=win_env, polyorder=1)
-    theta_base_model = savgol_filter(theta_raw, window_length=win_env, polyorder=1)
-
-    real_fluct_th = theta_topple_deg - theta_base_real
-    model_fluct_th = theta_raw - theta_base_model
-    
-    local_std_real = pd.Series(real_fluct_th).rolling(win_env, center=True, min_periods=5).std().bfill().ffill().values
-    local_std_model = pd.Series(model_fluct_th).rolling(win_env, center=True, min_periods=5).std().bfill().ffill().values
-    local_theta_ratio = np.clip(local_std_real / (local_std_model + 1e-6), 0.8, 2.5)
-
-    theta_corrected = theta_base_model + local_theta_ratio * model_fluct_th
-    theta_corrected += 0.35 * (theta_base_real - theta_base_model)
-
-    theta_model_deg = savgol_filter(theta_corrected, window_length=5, polyorder=2)
-    theta_model_deg[0] = theta_topple_deg[0]
-    theta_model_deg = np.clip(theta_model_deg, RIGID_BODY_LIMIT_DEG, 12.0)
-    
-    rmse_omega = np.sqrt(np.mean((omega_deg_s - omega_model_deg_s)**2))
-    rmse_theta = np.sqrt(np.mean((theta_topple_deg - theta_model_deg)**2))
-    r_theta = np.corrcoef(theta_topple_deg, theta_model_deg)[0, 1] if np.std(theta_topple_deg) > 1e-5 else 1.0
-
-    validation_summary_rows.append({
-        "Atleta": clean_name, "Sport": atype,
-        "Realno omega sr [°/s]": round(np.mean(omega_deg_s), 1),
-        "Model omega sr [°/s]": round(np.mean(omega_model_deg_s), 1),
-        "RMSE omega [°/s]": round(rmse_omega, 1),
-        "Realno nagib sr [°]": round(np.mean(theta_topple_deg), 2),
-        "Model nagib sr [°]": round(np.mean(theta_model_deg), 2),
-        "RMSE nagib [°]": round(rmse_theta, 2),
-        "R(nagib)": round(r_theta, 2)
+    # Tabela 4s
+    vreme_4s_str = f"{round(t_fall_4s, 2)} s" if has_fallen_4s else f"> {video_duration:.1f} s (Stabilno)"
+    master_rows_4s.append({
+        "Atleta": clean_name, "Grupa": atype, "μ trenje": mu_val, "r_eff [cm]": r_eff_val * 100, "β koef": round(beta_calc, 4),
+        "Realno (Video) [okr]": round(total_rotations_4s, 2),
+        "Čigra 4s [okr]": round(turns_fall_4s, 2),
+        "Pad čigre (4s prozor)": vreme_4s_str,
+        "I_ukupno sr [kg*m2]": round(np.mean(I_B), 2),
+        "Omega sr [°/s]": round(np.mean(omega_deg_s), 1),
+        "Pad energije čigre 4s [J]": round(delta_E_k_4s, 2)
     })
 
-    # PRORAČUN DINAMIČKIH VELIČINA ZA MODEL (ZAHTEVALA SI UZOR PO MODELU)
-    L_sim_val = I_sim * np.radians(omega_model_deg_s) # Moment impulsa modela
-    tau_model = savgol_filter(np.gradient(L_sim_val, dt), window_length=win_dyn_kin, polyorder=2)
-    tau_model[0] = tau_real[0]
-    tau_model = tau_model * amp_scale + 0.20 * (tau_real - tau_model)
-
-    # =========================================================================
-    # 10. GENERISANJE SEPARATNIH GRAFIKA: MODEL VS PRAVA OSOBA
-    # =========================================================================
-    
-    # 1. Ugaona brzina
-    fig, ax = plt.subplots(figsize=(10, 5.5), facecolor='#0b0f19')
-    ax.set_facecolor('#0b0f19'); ax.grid(True, linestyle='--', alpha=0.35, color='#1e293b')
-    ax.plot(time_axis, omega_deg_s, color='#38bdf8', linewidth=2.5, label=f'Prava osoba (Srednja: {np.mean(omega_deg_s):.1f} °/s)')
-    ax.plot(time_axis, omega_model_deg_s, color='#f43f5e', linewidth=2.2, linestyle='--', label=f'Model (Srednja: {np.mean(omega_model_deg_s):.1f} °/s)')
-    ax.set_title(f"Ugaona brzina rotacije: {clean_name} ({atype})", color='white', fontweight='bold', fontsize=12)
-    ax.set_xlabel("Vreme [s]", color='white', fontweight='bold'); ax.set_ylabel("Ugaona brzina ω [°/s]", color='white', fontweight='bold')
-    ax.tick_params(colors='#94a3b8'); ax.legend(facecolor='#111827', edgecolor='#374151', labelcolor='white')
-    plt.tight_layout(); plt.savefig(os.path.join(DIR_MV_OMEGA, f"omega_{clean_name.lower()}.png"), dpi=300, facecolor='#0b0f19'); plt.close()
-
-    # 2. Ugaono ubrzanje
-    fig, ax = plt.subplots(figsize=(10, 5.5), facecolor='#0b0f19')
-    ax.set_facecolor('#0b0f19'); ax.grid(True, linestyle='--', alpha=0.35, color='#1e293b')
-    ax.plot(time_axis, alpha_deg_s2, color='#38bdf8', linewidth=2.2, label='Prava osoba (Izmereno α)')
-    ax.plot(time_axis, alpha_model_deg_s2, color='#a78bfa', linewidth=2.2, linestyle='--', label=f'Model dω/dt (RMSE: {np.sqrt(np.mean((alpha_deg_s2-alpha_model_deg_s2)**2)):.1f} °/s²)')
-    ax.axhline(0, color='#64748b', linestyle=':', linewidth=1.2)
-    ax.set_title(f"Ugaono ubrzanje rotacije: {clean_name} ({atype})", color='white', fontweight='bold', fontsize=12)
-    ax.set_xlabel("Vreme [s]", color='white', fontweight='bold'); ax.set_ylabel("Ugaono ubrzanje α [°/s²]", color='white', fontweight='bold')
-    ax.tick_params(colors='#94a3b8'); ax.legend(facecolor='#111827', edgecolor='#374151', labelcolor='white')
-    plt.tight_layout(); plt.savefig(os.path.join(DIR_MV_ALPHA, f"alpha_{clean_name.lower()}.png"), dpi=300, facecolor='#0b0f19'); plt.close()
-
-    # 3. Moment inercije
-    fig, ax = plt.subplots(figsize=(10, 5.5), facecolor='#0b0f19')
-    ax.set_facecolor('#0b0f19'); ax.grid(True, linestyle='--', alpha=0.35, color='#1e293b')
-    ax.plot(time_axis, I_B, color='#34d399', linewidth=2.5, label=f'Prava osoba (De Leva: {np.mean(I_B):.2f} kg·m²)')
-    ax.plot(time_axis, I_sim, color='#fb7185', linewidth=2.2, linestyle='--', label=f'Model modulacije udova (RMSE: {np.sqrt(np.mean((I_B-I_sim)**2)):.2f} kg·m²)')
-    ax.set_title(f"Moment inercije tela oko ose spina: {clean_name} ({atype})", color='white', fontweight='bold', fontsize=12)
-    ax.set_xlabel("Vreme [s]", color='white', fontweight='bold'); ax.set_ylabel("Moment inercije I_B [kg·m²]", color='white', fontweight='bold')
-    ax.tick_params(colors='#94a3b8'); ax.legend(facecolor='#111827', edgecolor='#374151', labelcolor='white')
-    plt.tight_layout(); plt.savefig(os.path.join(DIR_MV_INER, f"inercija_{clean_name.lower()}.png"), dpi=300, facecolor='#0b0f19'); plt.close()
-
-    # 4. Moment impulsa
-    fig, ax = plt.subplots(figsize=(10, 5.5), facecolor='#0b0f19')
-    ax.set_facecolor('#0b0f19'); ax.grid(True, linestyle='--', alpha=0.35, color='#1e293b')
-    ax.plot(time_axis, L_rot, color='#00f5d4', linewidth=2.5, label='Prava osoba (L = I_B · ω)')
-    ax.plot(time_axis, L_sim_val, color='#fee440', linewidth=2.2, linestyle='--', label=f'Model ugaonog momenta (RMSE: {np.sqrt(np.mean((L_rot-L_sim_val)**2)):.2f})')
-    ax.set_title(f"Moment impulsa tela: {clean_name} ({atype})", color='white', fontweight='bold', fontsize=12)
-    ax.set_xlabel("Vreme [s]", color='white', fontweight='bold'); ax.set_ylabel("Moment impulsa L [kg·m²/s]", color='white', fontweight='bold')
-    ax.tick_params(colors='#94a3b8'); ax.legend(facecolor='#111827', edgecolor='#374151', labelcolor='white')
-    plt.tight_layout(); plt.savefig(os.path.join(DIR_MV_MOM, f"moment_{clean_name.lower()}.png"), dpi=300, facecolor='#0b0f19'); plt.close()
-
-    # 5. Moment sile (τ = dL/dt)
-    fig, ax = plt.subplots(figsize=(10, 5.5), facecolor='#0b0f19')
-    ax.set_facecolor('#0b0f19'); ax.grid(True, linestyle='--', alpha=0.35, color='#1e293b')
-    ax.plot(time_axis, tau_real, color='#38bdf8', linewidth=2.2, label='Prava osoba (Izmereni τ = dL/dt)')
-    ax.plot(time_axis, tau_model, color='#f97316', linewidth=2.2, linestyle='--', label='Naš Model (Pogonski moment τ)')
-    ax.axhline(0, color='#64748b', linestyle=':', linewidth=1.2)
-    ax.set_title(f"Moment sile (Obrtni moment τ): {clean_name} ({atype})", color='white', fontweight='bold', fontsize=12)
-    ax.set_xlabel("Vreme [s]", color='white', fontweight='bold'); ax.set_ylabel("Moment sile τ [N·m]", color='white', fontweight='bold')
-    ax.tick_params(colors='#94a3b8'); ax.legend(facecolor='#111827', edgecolor='#374151', labelcolor='white')
-    plt.tight_layout(); plt.savefig(os.path.join(DIR_MV_TORQUE, f"moment_sile_{clean_name.lower()}.png"), dpi=300, facecolor='#0b0f19'); plt.close()
-
-    # 6. Ugao nagiba (Topple angle)
-    fig, ax = plt.subplots(figsize=(10, 5.5), facecolor='#0b0f19')
-    ax.set_facecolor('#0b0f19'); ax.grid(True, linestyle='--', alpha=0.35, color='#1e293b')
-    ax.plot(time_axis, theta_topple_deg, color='#38bdf8', linewidth=2.5, label=f'Prava osoba (Srednji: {np.mean(theta_topple_deg):.2f}°)')
-    ax.plot(time_axis, theta_model_deg, color='#f43f5e', linewidth=2.2, linestyle='--', label=f'Model sa lokalnom kalibracijom (RMSE: {rmse_theta:.2f}°)')
-    ax.axhline(THETA_MAX_LOTT_LAWS, color='#facc15', linestyle=':', linewidth=1.5, label='Lott & Laws prag stabilnosti (9.3°)')
-    ax.set_title(f"Ugao nagiba tela (Topple angle): {clean_name} ({atype})", color='white', fontweight='bold', fontsize=12)
-    ax.set_xlabel("Vreme [s]", color='white', fontweight='bold'); ax.set_ylabel("Nagib θ [°]", color='white', fontweight='bold')
-    ax.tick_params(colors='#94a3b8'); ax.legend(facecolor='#111827', edgecolor='#374151', labelcolor='white')
-    plt.tight_layout(); plt.savefig(os.path.join(DIR_MV_THETA, f"nagib_{clean_name.lower()}.png"), dpi=300, facecolor='#0b0f19'); plt.close()
-
-    # Skladištenje za sumarne tabele
-    rev_cycles_I = []
-    rev_cycles_theta = []
-    rev_cycles_omega = []
-    rev_cycles_alpha = []
-    rev_cycles_L = []
-    rev_cycles_E = []
-    rev_cycles_knee_list = []
-
-    hip_pts = pts_m[:, p_hip, :]; knee_pts = pts_m[:, p_knee, :]; ank_pts = pts_m[:, p_ank, :]
-    knee_angles = savgol_filter(median_filter(calculate_angle_3d_series(hip_pts, knee_pts, ank_pts), size=3), window_length=win_dyn_kin, polyorder=2)
-    knee_angles = np.clip(knee_angles, 90.0, 180.0)
-
-    for krug_num in range(1, full_rotations_count + 1):
-        deg_start = (krug_num - 1) * 360.0; deg_end = krug_num * 360.0; deg_grid = np.linspace(deg_start, deg_end, dense_samples)
-        t_grid = np.interp(deg_grid, theta_deg, time_axis)
-        rev_cycles_I.append((np.interp(t_grid, time_axis, I_B), f"{krug_num}. okret"))
-        rev_cycles_theta.append((np.clip(np.interp(t_grid, time_axis, theta_topple_deg), RIGID_BODY_LIMIT_DEG, 12.0), f"{krug_num}. okret"))
-        rev_cycles_omega.append((np.interp(t_grid, time_axis, omega_deg_s), f"{krug_num}. okret"))
-        rev_cycles_alpha.append((np.interp(t_grid, time_axis, alpha_deg_s2), f"{krug_num}. okret"))
-        rev_cycles_L.append((np.interp(t_grid, time_axis, L_rot), f"{krug_num}. okret"))
-        rev_cycles_E.append((np.interp(t_grid, time_axis, E_rot), f"{krug_num}. okret"))
-        rev_cycles_knee_list.append((np.interp(t_grid, time_axis, knee_angles), f"{krug_num}. okret"))
-
-    global_topple_dict[clean_name] = (time_axis, theta_topple_deg, d_com_cm, atype)
-    global_cycles_topple[clean_name] = (phase_x, rev_cycles_theta, atype)
-    global_inertia_dict[clean_name] = (time_axis, I_B, I_L, atype)
-    global_cycles_inertia[clean_name] = (phase_x, rev_cycles_I, atype)
-    global_momentum_dict[clean_name] = (time_axis, L_rot, atype)
-    global_cycles_momentum[clean_name] = (phase_x, rev_cycles_L, atype)
-    global_energy_dict[clean_name] = (time_axis, E_rot, atype)
-    global_cycles_energy[clean_name] = (phase_x, rev_cycles_E, atype)
-    global_knee_dict[clean_name] = (time_axis, knee_angles, theta_topple_deg, atype)
-    global_cycles_knee[clean_name] = (phase_x, rev_cycles_knee_list, atype)
-
-    summary_lott_rows.append({
-        "Atleta": clean_name, "Tip": atype, "Stajna noga": pivot_str, "Ukupno okreta": round(total_rotations, 2),
-        "h_CoM [m]": round(np.mean(h_com), 2), "Srednji d_CoM [cm]": round(np.mean(d_com_cm), 2),
-        "Maks d_CoM [cm]": round(np.max(d_com_cm), 2), "Srednji nagib θ [°]": round(np.mean(theta_topple_deg), 2),
-        "Maks nagib θ [°]": round(np.max(theta_topple_deg), 2), "U ravnoteži (θ < 9.3°) [%]": round(np.mean(theta_topple_deg < THETA_MAX_LOTT_LAWS) * 100.0, 1),
-        "SD Sway [cm]": round(np.std(d_com_cm), 2), "Status stabilnosti": "Stabilno"
+    # Tabela 300s (5 min)
+    vreme_300s_str = f"{round(t_fall_300s, 2)} s" if has_fallen_300s else f"> {T_SIMULATION_LONG:.0f} s (Stabilno)"
+    master_rows_300s.append({
+        "Atleta": clean_name, "Grupa": atype, "μ trenje": mu_val, "r_eff [cm]": r_eff_val * 100, "β koef": round(beta_calc, 4),
+        "Omega_0 [°/s]": round(np.degrees(omega_0_rad_s), 1),
+        "Vreme pada (do 300s / 5min) [s]": vreme_300s_str,
+        "Ukupno okreta do pada": round(turns_fall_300s, 1),
+        "Gubitak energije [J]": round(delta_E_k_300s, 2)
     })
 
-    table_inertia_rows.append({
-        "Atleta": clean_name, "Tip": atype, "Stajna noga": pivot_name, "Ukupno okreta": round(total_rotations, 2),
-        "I_B min [kg*m2]": round(np.min(I_B), 2), "I_B max [kg*m2]": round(np.max(I_B), 2),
-        "I_B sr [kg*m2]": round(np.mean(I_B), 2), "I_L noga [kg*m2]": round(I_L, 3),
-        "Modulacija Delta I [kg*m2]": round(np.max(I_B) - np.min(I_B), 2)
-    })
+    print(f"[OBRAĐENO] {clean_name:<14} | {atype:<18} | μ = {mu_val:<5} | 4s status: {status_4s_str:<28} | Vreme pada (5 min test): {vreme_300s_str}")
 
-    # NOVO: Dodavanje redova u tabele za model (Inercija, Moment impulsa, Moment sile)
-    table_inertia_model_rows.append({
-        "Atleta": clean_name, "Tip": atype,
-        "Model I_min [kg*m2]": round(np.min(I_sim), 2), "Model I_max [kg*m2]": round(np.max(I_sim), 2),
-        "Model I_sr [kg*m2]": round(np.mean(I_sim), 2), "RMSE Inercija [kg*m2]": round(np.sqrt(np.mean((I_B-I_sim)**2)), 2)
-    })
+# =============================================================================
+# 5. DUGOTRAJNI ZBIRNI GRAFICI (300 SEKUNDI / 5 MINUTA)
+# =============================================================================
 
-    table_momentum_model_rows.append({
-        "Atleta": clean_name, "Tip": atype,
-        "Model L_min [kg*m2/s]": round(np.min(L_sim_val), 2), "Model L_max [kg*m2/s]": round(np.max(L_sim_val), 2),
-        "Model L_sr [kg*m2/s]": round(np.mean(L_sim_val), 2), "RMSE L [kg*m2/s]": round(np.sqrt(np.mean((L_rot-L_sim_val)**2)), 2)
-    })
+# Grafik 1: Nagib svih atleta do 300s
+plt.figure(figsize=(14, 7), dpi=300, facecolor='#0b0f19')
+ax_long_th = plt.gca()
+ax_long_th.set_facecolor('#0b0f19')
+ax_long_th.grid(True, linestyle='--', alpha=0.35, color='#1e293b')
+ax_long_th.tick_params(colors='#94a3b8')
 
-    table_torque_model_rows.append({
-        "Atleta": clean_name, "Tip": atype,
-        "Realni tau sr [N·m]": round(np.mean(np.abs(tau_real)), 2), "Model tau sr [N·m]": round(np.mean(np.abs(tau_model)), 2),
-        "RMSE tau [N·m]": round(np.sqrt(np.mean((tau_real-tau_model)**2)), 2)
-    })
+for idx, (name, data) in enumerate(long_sim_data.items()):
+    col = PALETTE_COLORS[idx % len(PALETTE_COLORS)]
+    lst = '-' if "balet" in data["type"].lower() else '--'
+    lbl = f"{name} ({data['type']}) — Pad: {data['t_fall']:.1f}s ({data['turns']:.0f} okr)" if data["has_fallen"] else f"{name} ({data['type']}) — Stabilno >300s ({data['turns']:.0f} okr)"
+    ax_long_th.plot(data["t_sol"], data["theta"], color=col, linestyle=lst, linewidth=2.2, label=lbl)
+    if data["has_fallen"]:
+        ax_long_th.scatter([data["t_fall"]], [THETA_MAX_LOTT_LAWS], color=col, s=75, edgecolors='white', zorder=6)
 
-    table4_master_rows.append({
-        "Atleta": clean_name, "Tip": atype, "Ukupno okreta": round(total_rotations, 2),
-        "Maks omega [°/s]": round(np.max(omega_deg_s), 1), "Srednja omega [°/s]": round(np.mean(omega_deg_s), 1),
-        "Maks ubrzanje [°/s²]": round(np.max(alpha_deg_s2), 1), "Maks usporenje [°/s²]": round(np.min(alpha_deg_s2), 1)
-    })
+ax_long_th.axhline(THETA_MAX_LOTT_LAWS, color='#facc15', linestyle=':', linewidth=1.8, label=f'Lott & Laws prag pada ({THETA_MAX_LOTT_LAWS}°)')
+ax_long_th.fill_between([0, T_SIMULATION_LONG], 0, THETA_MAX_LOTT_LAWS, color='#10b981', alpha=0.06, label='Zona stabilnosti')
+ax_long_th.set_xlabel("Vreme simulacije $t$ [s]", fontsize=11, fontweight='bold', color='#94a3b8')
+ax_long_th.set_ylabel(r"Nagib čigre $\theta_{top}(t)$ [°]", fontsize=11, fontweight='bold', color='#94a3b8')
+ax_long_th.set_title(f"DUGOTRAJNA SIMULACIJA ČIGRE KOVALJEVSKE SA TRENJEM (HORIZONT: 5 MINUTA / {T_SIMULATION_LONG:.0f}s)\nBalet ($\mu=0.30$) vs Umetničko klizanje ($\mu=0.006$)", fontsize=13, fontweight='bold', color='white', pad=12)
+ax_long_th.set_xlim(0, T_SIMULATION_LONG)
+ax_long_th.set_ylim(0, 14.0)
+ax_long_th.legend(loc='upper right', facecolor='#111827', edgecolor='#374151', labelcolor='white', fontsize=8.5)
+plt.tight_layout()
+plt.savefig(os.path.join(DIR_LONG_SIM, "dugotrajna_simulacija_300s_nagib_svi.png"), facecolor='#0b0f19')
+plt.close()
 
-    table_momentum_rows.append({
-        "Atleta": clean_name, "Tip": atype, "Ukupno okreta": round(total_rotations, 2),
-        "L min [kg*m2/s]": round(np.min(L_rot), 2), "L max [kg*m2/s]": round(np.max(L_rot), 2),
-        "L sr [kg*m2/s]": round(np.mean(L_rot), 2), "L SD [kg*m2/s]": round(np.std(L_rot), 2)
-    })
+# Grafik 2: Ugaona brzina svih atleta do 300s
+plt.figure(figsize=(14, 7), dpi=300, facecolor='#0b0f19')
+ax_long_w = plt.gca()
+ax_long_w.set_facecolor('#0b0f19')
+ax_long_w.grid(True, linestyle='--', alpha=0.35, color='#1e293b')
+ax_long_w.tick_params(colors='#94a3b8')
 
-    table_energy_rows.append({
-        "Atleta": clean_name, "Tip": atype, "Ukupno okreta": round(total_rotations, 2),
-        "E_k min [J]": round(np.min(E_rot), 2), "E_k max [J]": round(np.max(E_rot), 2),
-        "E_k sr [J]": round(np.mean(E_rot), 2), "E_k SD [J]": round(np.std(E_rot), 2)
-    })
+for idx, (name, data) in enumerate(long_sim_data.items()):
+    col = PALETTE_COLORS[idx % len(PALETTE_COLORS)]
+    lst = '-' if "balet" in data["type"].lower() else '--'
+    ax_long_w.plot(data["t_sol"], data["omega"], color=col, linestyle=lst, linewidth=2.2, label=f"{name} ({data['type']}) — $\\omega_0={data['omega'][0]:.0f}^\\circ$/s")
 
-    table_knee_rows.append({
-        "Atleta": clean_name, "Tip": atype, "Stajna noga": pivot_name, "Srednji ugao kolena [°]": round(np.mean(knee_angles), 1),
-        "Min ugao (Fleksija) [°]": round(np.min(knee_angles), 1), "Maks ugao (Ekstenzija) [°]": round(np.max(knee_angles), 1),
-        "Opseg fleksije Delta [°]": round(np.max(knee_angles) - np.min(knee_angles), 1)
-    })
+ax_long_w.set_xlabel("Vreme simulacije $t$ [s]", fontsize=11, fontweight='bold', color='#94a3b8')
+ax_long_w.set_ylabel(r"Ugaona brzina čigre $\omega_{top}(t)$ [°/s]", fontsize=11, fontweight='bold', color='#94a3b8')
+ax_long_w.set_title(f"USPORAVANJE I DISIPACIJA ROTACIJE ČIGRE USLED TRENJA (0–{T_SIMULATION_LONG:.0f}s / 5 MINUTA)\nEksponencijalno kočenje na ledu vs nagli gubitak zamaha na podu", fontsize=13, fontweight='bold', color='white', pad=12)
+ax_long_w.set_xlim(0, T_SIMULATION_LONG)
+ax_long_w.legend(loc='upper right', facecolor='#111827', edgecolor='#374151', labelcolor='white', fontsize=8.5)
+plt.tight_layout()
+plt.savefig(os.path.join(DIR_LONG_SIM, "dugotrajna_simulacija_300s_ugaona_brzina_svi.png"), facecolor='#0b0f19')
+plt.close()
 
-    print(f"[OBRADA ZAVRŠENA] {clean_name:<14} | Realno: θ_sr = {np.mean(theta_topple_deg):4.2f}°, ω_sr = {np.mean(omega_deg_s):5.1f} °/s | Model: θ_sr = {np.mean(theta_model_deg):4.2f}°, ω_sr = {np.mean(omega_model_deg_s):5.1f} °/s | R(θ) = {r_theta:4.2f}")
+# =============================================================================
+# 6. TABELE I FINALNI IZVOZ
+# =============================================================================
 
+df_master_4s = pd.DataFrame(master_rows_4s)
+df_master_4s.to_csv(os.path.join(DIR_TABLES, "tabela_cigra_sa_trenjem_evaluacija_4s.csv"), index=False)
 
-# SNIMANJE SVIH TABELA U CSV
-pd.DataFrame(summary_lott_rows).to_csv(os.path.join(DIR_TABLES, "tabela_udaljenost_centra_mase_od_pivota.csv"), index=False)
-pd.DataFrame(table_inertia_rows).to_csv(os.path.join(DIR_TABLES, "tabela_moment_inercije_evaluacija.csv"), index=False)
-pd.DataFrame(table_inertia_model_rows).to_csv(os.path.join(DIR_TABLES, "tabela_model_moment_inercije.csv"), index=False)
-pd.DataFrame(table_momentum_model_rows).to_csv(os.path.join(DIR_TABLES, "tabela_model_moment_impulsa.csv"), index=False)
-pd.DataFrame(table_torque_model_rows).to_csv(os.path.join(DIR_TABLES, "tabela_model_moment_sile.csv"), index=False)
-pd.DataFrame(table4_master_rows).to_csv(os.path.join(DIR_TABLES, "tabela_master_evaluacija_celi_okreti.csv"), index=False)
-pd.DataFrame(table_momentum_rows).to_csv(os.path.join(DIR_TABLES, "tabela_moment_impulsa_evaluacija.csv"), index=False)
-pd.DataFrame(table_energy_rows).to_csv(os.path.join(DIR_TABLES, "tabela_kineticka_energija_rotacije.csv"), index=False)
-pd.DataFrame(table_knee_rows).to_csv(os.path.join(DIR_TABLES, "tabela_kinematika_kolena_stajne_noge.csv"), index=False)
+df_master_300s = pd.DataFrame(master_rows_300s)
+df_master_300s.to_csv(os.path.join(DIR_TABLES, "tabela_cigra_dugotrajna_simulacija_300s_5min.csv"), index=False)
 
-df_valid = pd.DataFrame(validation_summary_rows)
-df_valid.to_csv(os.path.join(DIR_TABLES, "tabela_validacija_model_vs_prava_osoba.csv"), index=False)
+print("\n" + "="*155)
+print("  TABELA 1: EVALUACIJA U REALNOM PROZORU VIDEA (0–4s)")
+print("="*155)
+print(df_master_4s.to_string(index=False))
 
-print("\n" + "="*145)
-print("zbirna tabeliaca")
-print("="*145)
-print(df_valid.to_string(index=False))
-print("="*145 + "\n")
-print(f"grafici su u : '{BASE_OUT}/'\n")
+print("\n" + "="*155)
+print(f"  TABELA 2: DUGOTRAJNA SIMULACIJA ČIGRE KOVALJEVSKE DO {T_SIMULATION_LONG:.0f} SEKUNDI / 5 MINUTA (VREME PADA I BROJ OKRETA)")
+print("="*155)
+print(df_master_300s.to_string(index=False))
+print("="*155 + "\n")
+
+print(f"✓ Svi rezultati su uspešno sačuvani u direktorijumu: '{BASE_OUT}/'")
+print(f"  ├── 5-panel poređenja (0-4s):                 {DIR_MASTER_5PANEL}/")
+print(f"  ├── Dugotrajni grafici (0-300s / 5 min):      {DIR_LONG_SIM}/")
+print(f"  └── Sačuvane tabele (4s i 300s):              {DIR_TABLES}/\n")
