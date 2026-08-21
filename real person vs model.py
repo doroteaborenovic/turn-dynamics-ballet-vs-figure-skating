@@ -608,11 +608,8 @@ for file in sorted(all_files):
 
     print(f"[OBRAĐENO] {clean_name:<14} | {atype:<18} | μ = {mu_val:<5} | 4s status: {status_4s_str:<28} | Vreme pada (5 min test): {vreme_300s_str}")
 
-# =============================================================================
-# 5. DUGOTRAJNI ZBIRNI GRAFICI (300 SEKUNDI / 5 MINUTA)
-# =============================================================================
-
-# Grafik 1: Nagib svih atleta do 300s
+# 
+# nagib i ispis za sve atlete 
 plt.figure(figsize=(14, 7), dpi=300, facecolor='#0b0f19')
 ax_long_th = plt.gca()
 ax_long_th.set_facecolor('#0b0f19')
@@ -639,7 +636,7 @@ plt.tight_layout()
 plt.savefig(os.path.join(DIR_LONG_SIM, "dugotrajna_simulacija_300s_nagib_svi.png"), facecolor='#0b0f19')
 plt.close()
 
-# Grafik 2: Ugaona brzina svih atleta do 300s
+# ugoana brzina svih atletea do 650 sekundi 
 plt.figure(figsize=(14, 7), dpi=300, facecolor='#0b0f19')
 ax_long_w = plt.gca()
 ax_long_w.set_facecolor('#0b0f19')
@@ -653,16 +650,12 @@ for idx, (name, data) in enumerate(long_sim_data.items()):
 
 ax_long_w.set_xlabel("Vreme simulacije $t$ [s]", fontsize=11, fontweight='bold', color='#94a3b8')
 ax_long_w.set_ylabel(r"Ugaona brzina čigre $\omega_{top}(t)$ [°/s]", fontsize=11, fontweight='bold', color='#94a3b8')
-ax_long_w.set_title(f"USPORAVANJE I DISIPACIJA ROTACIJE ČIGRE USLED TRENJA (0–{T_SIMULATION_LONG:.0f}s / 5 MINUTA)\nEksponencijalno kočenje na ledu vs nagli gubitak zamaha na podu", fontsize=13, fontweight='bold', color='white', pad=12)
+ax_long_w.set_title(f"usporavanje", fontsize=13, fontweight='bold', color='white', pad=12)
 ax_long_w.set_xlim(0, T_SIMULATION_LONG)
 ax_long_w.legend(loc='upper right', facecolor='#111827', edgecolor='#374151', labelcolor='white', fontsize=8.5)
 plt.tight_layout()
 plt.savefig(os.path.join(DIR_LONG_SIM, "dugotrajna_simulacija_300s_ugaona_brzina_svi.png"), facecolor='#0b0f19')
 plt.close()
-
-# =============================================================================
-# 6. TABELE I FINALNI IZVOZ
-# =============================================================================
 
 df_master_4s = pd.DataFrame(master_rows_4s)
 df_master_4s.to_csv(os.path.join(DIR_TABLES, "tabela_cigra_sa_trenjem_evaluacija_4s.csv"), index=False)
@@ -671,17 +664,17 @@ df_master_300s = pd.DataFrame(master_rows_300s)
 df_master_300s.to_csv(os.path.join(DIR_TABLES, "tabela_cigra_dugotrajna_simulacija_300s_5min.csv"), index=False)
 
 print("\n" + "="*155)
-print("  TABELA 1: EVALUACIJA U REALNOM PROZORU VIDEA (0–4s)")
+print(" tabelica 1 evaluacija kroz 4 skeundi i realni video")
 print("="*155)
 print(df_master_4s.to_string(index=False))
 
 print("\n" + "="*155)
-print(f"  TABELA 2: DUGOTRAJNA SIMULACIJA ČIGRE KOVALJEVSKE DO {T_SIMULATION_LONG:.0f} SEKUNDI / 5 MINUTA (VREME PADA I BROJ OKRETA)")
+print(f" simulacija do {T_SIMULATION_LONG:.0f} sekudni ")
 print("="*155)
 print(df_master_300s.to_string(index=False))
 print("="*155 + "\n")
 
-print(f"✓ Svi rezultati su uspešno sačuvani u direktorijumu: '{BASE_OUT}/'")
-print(f"  ├── 5-panel poređenja (0-4s):                 {DIR_MASTER_5PANEL}/")
-print(f"  ├── Dugotrajni grafici (0-300s / 5 min):      {DIR_LONG_SIM}/")
-print(f"  └── Sačuvane tabele (4s i 300s):              {DIR_TABLES}/\n")
+print(f"svi rezultati su u  '{BASE_OUT}/'")
+print(f" poredjenja              {DIR_MASTER_5PANEL}/")
+print(f" simulacija od 600s     {DIR_LONG_SIM}/")
+print(f"  tabelice su u {DIR_TABLES}/\n")
