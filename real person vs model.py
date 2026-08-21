@@ -531,9 +531,7 @@ for file in sorted(all_files):
         "mu": mu_val, "beta": beta_calc, "delta_Ek": delta_E_k_300s
     }
 
-    # -------------------------------------------------------------------------
-    # 10. GRAFIK: 5-PANEL POREĐENJE SA REALNOM OSOBOM
-    # -------------------------------------------------------------------------
+    # grafik
     fig, axes = plt.subplots(5, 1, figsize=(12, 16), dpi=300, facecolor='#0b0f19', sharex=True)
     for ax in axes:
         ax.set_facecolor('#0b0f19')
@@ -628,7 +626,7 @@ ax_long_th.axhline(THETA_MAX_LOTT_LAWS, color='#facc15', linestyle=':', linewidt
 ax_long_th.fill_between([0, T_SIMULATION_LONG], 0, THETA_MAX_LOTT_LAWS, color='#10b981', alpha=0.06, label='Zona stabilnosti')
 ax_long_th.set_xlabel("Vreme simulacije $t$ [s]", fontsize=11, fontweight='bold', color='#94a3b8')
 ax_long_th.set_ylabel(r"Nagib čigre $\theta_{top}(t)$ [°]", fontsize=11, fontweight='bold', color='#94a3b8')
-ax_long_th.set_title(f"DUGOTRAJNA SIMULACIJA ČIGRE KOVALJEVSKE SA TRENJEM (HORIZONT: 5 MINUTA / {T_SIMULATION_LONG:.0f}s)\nBalet ($\mu=0.30$) vs Umetničko klizanje ($\mu=0.006$)", fontsize=13, fontweight='bold', color='white', pad=12)
+ax_long_th.set_title(f"simulacijica", fontsize=13, fontweight='bold', color='white', pad=12)
 ax_long_th.set_xlim(0, T_SIMULATION_LONG)
 ax_long_th.set_ylim(0, 14.0)
 ax_long_th.legend(loc='upper right', facecolor='#111827', edgecolor='#374151', labelcolor='white', fontsize=8.5)
