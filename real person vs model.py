@@ -11,7 +11,7 @@ from scipy.integrate import solve_ivp
 
 warnings.filterwarnings('ignore')
 
-# parametri poznati i to 
+# parametri poznati i to  
 TIME_WINDOWS = {
     "trusova":       (6.0, 10.0),
     "khoreva":       (0.0, 4.0),
