@@ -11,8 +11,7 @@ from scipy.integrate import solve_ivp
 
 warnings.filterwarnings('ignore')
 
-# parametri i poznate info 
-
+# parametri poznati i to 
 TIME_WINDOWS = {
     "trusova":       (6.0, 10.0),
     "khoreva":       (0.0, 4.0),
@@ -25,19 +24,21 @@ TIME_WINDOWS = {
     "scerebakova":   (0.0, 4.0)
 }
 
+# Balet (Serenade model): r_eff = 2/3 * 1.68 cm = 1.12 cm = 0.0112 m
+# Klizanje (1 inch rocker): r_eff = 2/3 * 1.27 cm = 0.85 cm = 0.0085 m
 ATHLETE_DB = {
-    "marianela":    {"height": 1.74, "weight": 52.0, "type": "Balet", "shoe_size": 39, "mu": 0.30, "r_eff": 0.025},
-    "kapitonova":   {"height": 1.68, "weight": 48.0, "type": "Balet", "shoe_size": 38, "mu": 0.30, "r_eff": 0.025},
-    "khoreva":      {"height": 1.73, "weight": 47.0, "type": "Balet", "shoe_size": 39, "mu": 0.30, "r_eff": 0.025},
-    "trusova":      {"height": 1.66, "weight": 50.0, "type": "Umetničko klizanje", "shoe_size": 37, "mu": 0.006, "r_eff": 0.015},
-    "valieva":      {"height": 1.60, "weight": 44.0, "type": "Umetničko klizanje", "shoe_size": 36, "mu": 0.006, "r_eff": 0.015},
-    "kamilavalieva":{"height": 1.60, "weight": 44.0, "type": "Umetničko klizanje", "shoe_size": 36, "mu": 0.006, "r_eff": 0.015},
-    "shcherbakova": {"height": 1.61, "weight": 42.0, "type": "Umetničko klizanje", "shoe_size": 36, "mu": 0.006, "r_eff": 0.015},
-    "scerebakova":  {"height": 1.61, "weight": 42.0, "type": "Umetničko klizanje", "shoe_size": 36, "mu": 0.006, "r_eff": 0.015},
-    "liu":          {"height": 1.58, "weight": 45.0, "type": "Umetničko klizanje", "shoe_size": 36, "mu": 0.006, "r_eff": 0.015}
+    "marianela":    {"height": 1.74, "weight": 52.0, "type": "Balet", "shoe_size": 39, "mu": 0.30, "r_eff": 0.0112},
+    "kapitonova":   {"height": 1.68, "weight": 48.0, "type": "Balet", "shoe_size": 38, "mu": 0.30, "r_eff": 0.0112},
+    "khoreva":      {"height": 1.73, "weight": 47.0, "type": "Balet", "shoe_size": 39, "mu": 0.30, "r_eff": 0.0112},
+    "trusova":      {"height": 1.66, "weight": 50.0, "type": "Umetničko klizanje", "shoe_size": 37, "mu": 0.006, "r_eff": 0.0085},
+    "valieva":      {"height": 1.60, "weight": 44.0, "type": "Umetničko klizanje", "shoe_size": 36, "mu": 0.006, "r_eff": 0.0085},
+    "kamilavalieva":{"height": 1.60, "weight": 44.0, "type": "Umetničko klizanje", "shoe_size": 36, "mu": 0.006, "r_eff": 0.0085},
+    "shcherbakova": {"height": 1.61, "weight": 42.0, "type": "Umetničko klizanje", "shoe_size": 36, "mu": 0.006, "r_eff": 0.0085},
+    "scerebakova":  {"height": 1.61, "weight": 42.0, "type": "Umetničko klizanje", "shoe_size": 36, "mu": 0.006, "r_eff": 0.0085},
+    "liu":          {"height": 1.58, "weight": 45.0, "type": "Umetničko klizanje", "shoe_size": 36, "mu": 0.006, "r_eff": 0.0085}
 }
 
-# de leva model 
+# De Leva model segmenata tela (žene, 1996)
 DE_LEVA_FEMALE = {
     "Head":        {"mass": 0.0668, "pos": 0.5000},
     "Trunk":       {"mass": 0.4257, "pos": 0.4360},
@@ -56,7 +57,7 @@ DE_LEVA_FEMALE = {
 }
 
 G_ACC = 9.81
-THETA_MAX_LOTT_LAWS = 9.3   # Prag pada / stabilne ravnoteže Lott & Laws (2012) [°]
+THETA_MAX_LOTT_LAWS = 9.3   # Prag stabilne ravnoteže Lott & Laws (2012) [°]
 RIGID_BODY_LIMIT_DEG = 1.0  # Fizički limit krutog tela [°]
 THETA_INITIAL_TOP_DEG = 1.5 # Početni nagib čigre [°]
 T_SIMULATION_LONG = 650.0
@@ -77,7 +78,7 @@ if not os.path.exists(INPUT_DIR):
 
 PALETTE_COLORS = ["#38bdf8", "#fb7185", "#34d399", "#facc15", "#a78bfa", "#f472b6", "#4ade80", "#00f5d4", "#ff5400"]
 
-# funkcijice 
+# funkcijice
 
 def clean_and_interpolate_signal(arr, vis=None, vis_threshold=0.35):
     arr = np.asarray(arr, dtype=float).copy()
@@ -188,7 +189,9 @@ def track_strictly_monotonic_spin(raw_angles, is_skater=True):
     theta_smooth = savgol_filter(theta_continuous, window_length=win, polyorder=2)
     return np.maximum(theta_smooth, 0.0)
 
-# impelmentacija cigrice 
+# -------------------------------------------------------------------------
+# EGZAKTNO REŠAVANJE ČIGRE KOVALJEVSKE SA MOMENTOM TRENJA
+# -------------------------------------------------------------------------
 
 def solve_kovalevskaya_exact_friction(theta_0_rad, omega_0_rad_s, J_phys, m_kg, mu_friction, r_contact, time_eval):
     tau_fric = mu_friction * m_kg * G_ACC * r_contact
@@ -272,7 +275,7 @@ def solve_kovalevskaya_exact_friction(theta_0_rad, omega_0_rad_s, J_phys, m_kg, 
 
     return theta_deg, omega_top_deg_s, alpha_top_deg_s2, L_top, E_k_top, t_fall, turns_fall, beta, delta_E_k, has_fallen, t_sol, theta_deg_raw, omega_top_deg_s_raw
 
-# ovde ide glavna obradica kao simulacija i to 
+# obrada i simulacija 
 
 all_files = glob.glob(os.path.join(INPUT_DIR, "*_kinematics.csv"))
 if not all_files:
@@ -292,7 +295,7 @@ for file in sorted(all_files):
     df_raw = pd.read_csv(file)
     filename_lower = os.path.basename(file).lower().replace("_", "").replace("-", "")
     athlete_key = next((k for k in ATHLETE_DB if k in filename_lower), None)
-    athlete_data = ATHLETE_DB.get(athlete_key, {"height": 1.65, "weight": 50.0, "type": "Balet", "shoe_size": 38, "mu": 0.30, "r_eff": 0.025})
+    athlete_data = ATHLETE_DB.get(athlete_key, {"height": 1.65, "weight": 50.0, "type": "Balet", "shoe_size": 38, "mu": 0.30, "r_eff": 0.0112})
     atype = athlete_data["type"]
     height_m = athlete_data["height"]
     weight_kg = athlete_data["weight"]
@@ -531,7 +534,7 @@ for file in sorted(all_files):
         "mu": mu_val, "beta": beta_calc, "delta_Ek": delta_E_k_300s
     }
 
-    # grafik
+    # Grafik komparacije (5 panela)
     fig, axes = plt.subplots(5, 1, figsize=(12, 16), dpi=300, facecolor='#0b0f19', sharex=True)
     for ax in axes:
         ax.set_facecolor('#0b0f19')
@@ -540,7 +543,7 @@ for file in sorted(all_files):
 
     status_4s_str = f"Pad čigre u {t_fall_4s:.2f}s (prelazak {THETA_MAX_LOTT_LAWS}°)" if has_fallen_4s else f"Stabilno (> {video_duration:.1f}s bez pada)"
 
-    axes[0].plot(time_axis, theta_deg_top, color='#38bdf8', linewidth=2.4, label=rf'Čigra Kovaljevske ($\mu={mu_val}$, $r_{{eff}}={r_eff_val*100:.1f}\text{{cm}}$, $\beta={beta_calc:.4f}$) $\theta_{{top}}(t)$ [°]')
+    axes[0].plot(time_axis, theta_deg_top, color='#38bdf8', linewidth=2.4, label=rf'Čigra Kovaljevske ($\mu={mu_val}$, $r_{{eff}}={r_eff_val*100:.2f}\text{{cm}}$, $\beta={beta_calc:.4f}$) $\theta_{{top}}(t)$ [°]')
     axes[0].plot(time_axis, theta_topple_deg, color='#fb7185', linewidth=2.0, linestyle='--', label=f'Realna osoba ({clean_name}) $\\theta_{{person}}(t)$ [°]')
     axes[0].axhline(THETA_MAX_LOTT_LAWS, color='#facc15', linestyle=':', linewidth=1.5, label=f'Lott & Laws prag pada ({THETA_MAX_LOTT_LAWS}°)')
     axes[0].fill_between(time_axis, 0, THETA_MAX_LOTT_LAWS, color='#10b981', alpha=0.06, label='Zona stabilnosti')
@@ -550,7 +553,7 @@ for file in sorted(all_files):
     axes[0].set_ylabel(r"Nagib $\theta$ [°]", fontsize=10, color='#94a3b8')
     axes[0].set_ylim(0, max(14.0, np.nanmax(theta_topple_deg) + 2.0))
     axes[0].legend(loc='upper right', facecolor='#111827', edgecolor='#374151', labelcolor='white', fontsize=8.2)
-    axes[0].set_title(f"DINAMIKA ROTACIJE I ČIGRA KOVALJEVSKE SA TRENJEM: {clean_name} ({atype.upper()})\n$r_{{eff}} = {r_eff_val*100:.1f}$ cm | Trenje: $\\mu = {mu_val}$ | {status_4s_str} | $\\omega_0 = {np.degrees(omega_0_rad_s):.1f}^\\circ$/s", fontsize=11.5, fontweight='bold', color='white', pad=10)
+    axes[0].set_title(f"DINAMIKA ROTACIJE I ČIGRA KOVALJEVSKE SA TRENJEM: {clean_name} ({atype.upper()})\n$r_{{eff}} = {r_eff_val*100:.2f}$ cm | Trenje: $\\mu = {mu_val}$ | {status_4s_str} | $\\omega_0 = {np.degrees(omega_0_rad_s):.1f}^\\circ$/s", fontsize=11.5, fontweight='bold', color='white', pad=10)
 
     axes[1].plot(time_axis, omega_deg_s_top, color='#38bdf8', linewidth=2.4, label=r'Čigra $\omega_{top}(t) = \sqrt{p^2+q^2+r^2}$ [°/s]')
     axes[1].plot(time_axis, omega_deg_s, color='#ff007f', linewidth=2.0, linestyle='--', label=r'Realna osoba $\omega_{person}(t)$ [°/s]')
@@ -585,7 +588,7 @@ for file in sorted(all_files):
     # Tabela 4s
     vreme_4s_str = f"{round(t_fall_4s, 2)} s" if has_fallen_4s else f"> {video_duration:.1f} s (Stabilno)"
     master_rows_4s.append({
-        "Atleta": clean_name, "Grupa": atype, "μ trenje": mu_val, "r_eff [cm]": r_eff_val * 100, "β koef": round(beta_calc, 4),
+        "Atleta": clean_name, "Grupa": atype, "μ trenje": mu_val, "r_eff [cm]": round(r_eff_val * 100, 2), "β koef": round(beta_calc, 4),
         "Realno (Video) [okr]": round(total_rotations_4s, 2),
         "Čigra 4s [okr]": round(turns_fall_4s, 2),
         "Pad čigre (4s prozor)": vreme_4s_str,
@@ -597,7 +600,7 @@ for file in sorted(all_files):
     # Tabela 300s (5 min)
     vreme_300s_str = f"{round(t_fall_300s, 2)} s" if has_fallen_300s else f"> {T_SIMULATION_LONG:.0f} s (Stabilno)"
     master_rows_300s.append({
-        "Atleta": clean_name, "Grupa": atype, "μ trenje": mu_val, "r_eff [cm]": r_eff_val * 100, "β koef": round(beta_calc, 4),
+        "Atleta": clean_name, "Grupa": atype, "μ trenje": mu_val, "r_eff [cm]": round(r_eff_val * 100, 2), "β koef": round(beta_calc, 4),
         "Omega_0 [°/s]": round(np.degrees(omega_0_rad_s), 1),
         "Vreme pada (do 300s / 5min) [s]": vreme_300s_str,
         "Ukupno okreta do pada": round(turns_fall_300s, 1),
@@ -606,8 +609,7 @@ for file in sorted(all_files):
 
     print(f"[OBRAĐENO] {clean_name:<14} | {atype:<18} | μ = {mu_val:<5} | 4s status: {status_4s_str:<28} | Vreme pada (5 min test): {vreme_300s_str}")
 
-# 
-# nagib i ispis za sve atlete 
+# Nagib i ispis za sve atlete 
 plt.figure(figsize=(14, 7), dpi=300, facecolor='#0b0f19')
 ax_long_th = plt.gca()
 ax_long_th.set_facecolor('#0b0f19')
@@ -626,7 +628,7 @@ ax_long_th.axhline(THETA_MAX_LOTT_LAWS, color='#facc15', linestyle=':', linewidt
 ax_long_th.fill_between([0, T_SIMULATION_LONG], 0, THETA_MAX_LOTT_LAWS, color='#10b981', alpha=0.06, label='Zona stabilnosti')
 ax_long_th.set_xlabel("Vreme simulacije $t$ [s]", fontsize=11, fontweight='bold', color='#94a3b8')
 ax_long_th.set_ylabel(r"Nagib čigre $\theta_{top}(t)$ [°]", fontsize=11, fontweight='bold', color='#94a3b8')
-ax_long_th.set_title(f"simulacijica", fontsize=13, fontweight='bold', color='white', pad=12)
+ax_long_th.set_title(f"simulacija stabilnsoti moje cigre", fontsize=13, fontweight='bold', color='white', pad=12)
 ax_long_th.set_xlim(0, T_SIMULATION_LONG)
 ax_long_th.set_ylim(0, 14.0)
 ax_long_th.legend(loc='upper right', facecolor='#111827', edgecolor='#374151', labelcolor='white', fontsize=8.5)
@@ -634,7 +636,7 @@ plt.tight_layout()
 plt.savefig(os.path.join(DIR_LONG_SIM, "dugotrajna_simulacija_300s_nagib_svi.png"), facecolor='#0b0f19')
 plt.close()
 
-# ugoana brzina svih atletea do 650 sekundi 
+# Ugaona brzina svih atleta do 650 sekundi 
 plt.figure(figsize=(14, 7), dpi=300, facecolor='#0b0f19')
 ax_long_w = plt.gca()
 ax_long_w.set_facecolor('#0b0f19')
@@ -648,7 +650,7 @@ for idx, (name, data) in enumerate(long_sim_data.items()):
 
 ax_long_w.set_xlabel("Vreme simulacije $t$ [s]", fontsize=11, fontweight='bold', color='#94a3b8')
 ax_long_w.set_ylabel(r"Ugaona brzina čigre $\omega_{top}(t)$ [°/s]", fontsize=11, fontweight='bold', color='#94a3b8')
-ax_long_w.set_title(f"usporavanje", fontsize=13, fontweight='bold', color='white', pad=12)
+ax_long_w.set_title(f"Dugotrajno usporavanje ugaone brzine", fontsize=13, fontweight='bold', color='white', pad=12)
 ax_long_w.set_xlim(0, T_SIMULATION_LONG)
 ax_long_w.legend(loc='upper right', facecolor='#111827', edgecolor='#374151', labelcolor='white', fontsize=8.5)
 plt.tight_layout()
@@ -662,17 +664,17 @@ df_master_300s = pd.DataFrame(master_rows_300s)
 df_master_300s.to_csv(os.path.join(DIR_TABLES, "tabela_cigra_dugotrajna_simulacija_300s_5min.csv"), index=False)
 
 print("\n" + "="*155)
-print(" tabelica 1 evaluacija kroz 4 skeundi i realni video")
+print(" Evaluacija kroz 4 sekunde i realni video")
 print("="*155)
 print(df_master_4s.to_string(index=False))
 
 print("\n" + "="*155)
-print(f" simulacija do {T_SIMULATION_LONG:.0f} sekudni ")
+print(f"  Simulacija do {T_SIMULATION_LONG:.0f} sekundi")
 print("="*155)
 print(df_master_300s.to_string(index=False))
 print("="*155 + "\n")
 
-print(f"svi rezultati su u  '{BASE_OUT}/'")
-print(f" poredjenja              {DIR_MASTER_5PANEL}/")
-print(f" simulacija od 600s     {DIR_LONG_SIM}/")
-print(f"  tabelice su u {DIR_TABLES}/\n")
+print(f" rezultati: '{BASE_OUT}/'")
+print(f" - Grafici: {DIR_MASTER_5PANEL}/")
+print(f" - simulacije:        {DIR_LONG_SIM}/")
+print(f" - tabelice:          {DIR_TABLES}/\n")
