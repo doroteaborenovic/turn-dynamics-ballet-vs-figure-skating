@@ -11,7 +11,7 @@ from scipy.ndimage import median_filter
 warnings.filterwarnings('ignore')
 
 # =============================================================================
-# 1. PARAMETRI, BAZA ATLETA, DE LEVA (1996) MODEL I PODEŠAVANJE DIREKTORIJUMA
+# 1. PARAMETRI, BAZA ATLETA, DE LEVA MODEL I PODEŠAVANJE DIREKTORIJUMA
 # =============================================================================
 
 TIME_WINDOWS = {
@@ -40,22 +40,22 @@ ATHLETE_DB = {
 
 FOOT_SIZES_CM = {36: 22.9, 37: 23.8, 38: 24.3, 39: 25.1, 40: 25.4}
 
-# De Leva 1996 - Ženska raspodela mase i položaja težišta segmenata
+# De Leva (1996) - Tabela 4: Ženska raspodela mase, položaji težišta i radijusi inercije oko uzdužne ose (r_z)
 DE_LEVA_FEMALE = {
-    "Head":        {"mass": 0.0668, "pos": 0.5000},
-    "Trunk":       {"mass": 0.4257, "pos": 0.4360},
-    "R_UpperArm":  {"mass": 0.0255, "pos": 0.5754},
-    "L_UpperArm":  {"mass": 0.0255, "pos": 0.5754},
-    "R_Forearm":   {"mass": 0.0138, "pos": 0.4559},
-    "L_Forearm":   {"mass": 0.0138, "pos": 0.4559},
-    "R_Hand":      {"mass": 0.0056, "pos": 0.3400},
-    "L_Hand":      {"mass": 0.0056, "pos": 0.3400},
-    "R_Thigh":     {"mass": 0.1478, "pos": 0.3612},
-    "L_Thigh":     {"mass": 0.1478, "pos": 0.3612},
-    "R_Shank":     {"mass": 0.0481, "pos": 0.4416},
-    "L_Shank":     {"mass": 0.0481, "pos": 0.4416},
-    "R_Foot":      {"mass": 0.0129, "pos": 0.4014},
-    "L_Foot":      {"mass": 0.0129, "pos": 0.4014}
+    "Head":        {"mass": 0.0668, "pos": 0.4841, "r_z": 0.358},  # Vertex - Cervicale / Mid-Shoulder
+    "Trunk":       {"mass": 0.4257, "pos": 0.3782, "r_z": 0.357},  # Mid-Shoulder (MIDS) do Mid-Hip (MIDH)
+    "R_UpperArm":  {"mass": 0.0255, "pos": 0.5754, "r_z": 0.158},  # Shoulder (SJC) do Elbow (EJC)
+    "L_UpperArm":  {"mass": 0.0255, "pos": 0.5754, "r_z": 0.158},  # Shoulder (SJC) do Elbow (EJC)
+    "R_Forearm":   {"mass": 0.0138, "pos": 0.4559, "r_z": 0.149},  # Elbow (EJC) do Wrist (WJC)
+    "L_Forearm":   {"mass": 0.0138, "pos": 0.4559, "r_z": 0.149},  # Elbow (EJC) do Wrist (WJC)
+    "R_Hand":      {"mass": 0.0056, "pos": 0.3427, "r_z": 0.220},  # Wrist (WJC) do 3rd Dactylion (DAC3)
+    "L_Hand":      {"mass": 0.0056, "pos": 0.3427, "r_z": 0.220},  # Wrist (WJC) do 3rd Dactylion (DAC3)
+    "R_Thigh":     {"mass": 0.1478, "pos": 0.3612, "r_z": 0.180},  # Hip (HJC) do Knee (KJC)
+    "L_Thigh":     {"mass": 0.1478, "pos": 0.3612, "r_z": 0.180},  # Hip (HJC) do Knee (KJC)
+    "R_Shank":     {"mass": 0.0481, "pos": 0.4416, "r_z": 0.162},  # Knee (KJC) do Lateral Malleolus (LMAL)
+    "L_Shank":     {"mass": 0.0481, "pos": 0.4416, "r_z": 0.162},  # Knee (KJC) do Lateral Malleolus (LMAL)
+    "R_Foot":      {"mass": 0.0129, "pos": 0.4014, "r_z": 0.183},  # Heel do Toe Tip (TTIP)
+    "L_Foot":      {"mass": 0.0129, "pos": 0.4014, "r_z": 0.183}   # Heel do Toe Tip (TTIP)
 }
 
 G_ACC = 9.81
@@ -66,27 +66,43 @@ RIGID_BODY_LIMIT_DEG = 1.0  # Fizički limit krutog tela [°]
 BASE_OUT = "konacnirezultati"
 
 # Podfolderi za stabilnost (Lott & Laws)
-DIR_STAB_INDIVIDUAL = os.path.join(BASE_OUT, "grafici_ravnoteza_pojedinacni")
-DIR_STAB_SUMMARY    = os.path.join(BASE_OUT, "grafici_ravnoteza_zbirni")
+DIR_STAB_INDIVIDUAL   = os.path.join(BASE_OUT, "grafici_ravnoteza_pojedinacni")
+DIR_STAB_SUMMARY      = os.path.join(BASE_OUT, "grafici_ravnoteza_zbirni")
 
 # Podfolderi za moment inercije
-DIR_INER_INDIVIDUAL = os.path.join(BASE_OUT, "grafici_inercija_pojedinacni")
-DIR_INER_SUMMARY    = os.path.join(BASE_OUT, "grafici_inercija_zbirni")
+DIR_INER_INDIVIDUAL   = os.path.join(BASE_OUT, "grafici_inercija_pojedinacni")
+DIR_INER_SUMMARY      = os.path.join(BASE_OUT, "grafici_inercija_zbirni")
 
 # Podfolderi za kinematiku (ugaona brzina i ubrzanje)
-DIR_KIN_OMEGA       = os.path.join(BASE_OUT, "grafici_ugaona_brzina_komparacija")
-DIR_KIN_ALPHA       = os.path.join(BASE_OUT, "grafici_ugaono_ubrzanje_komparacija")
+DIR_KIN_OMEGA         = os.path.join(BASE_OUT, "grafici_ugaona_brzina_komparacija")
+DIR_KIN_ALPHA         = os.path.join(BASE_OUT, "grafici_ugaono_ubrzanje_komparacija")
+
+# Podfolderi za dinamičke veličine (moment impulsa, kinetička energija, moment sile)
+DIR_MOM_INDIVIDUAL    = os.path.join(BASE_OUT, "grafici_moment_impulsa_pojedinacni")
+DIR_MOM_SUMMARY       = os.path.join(BASE_OUT, "grafici_moment_impulsa_zbirni")
+DIR_ENG_INDIVIDUAL    = os.path.join(BASE_OUT, "grafici_kineticka_energija_pojedinacni")
+DIR_ENG_SUMMARY       = os.path.join(BASE_OUT, "grafici_kineticka_energija_zbirni")
+DIR_TORQUE_INDIVIDUAL = os.path.join(BASE_OUT, "grafici_moment_sile_pojedinacni")
+DIR_TORQUE_SUMMARY    = os.path.join(BASE_OUT, "grafici_moment_sile_zbirni")
+
+# Podfolderi za koleno stajne noge
+DIR_KNEE_IND          = os.path.join(BASE_OUT, "grafici_koleno_stajne_noge_pojedinacni")
+DIR_KNEE_SUM          = os.path.join(BASE_OUT, "grafici_koleno_stajne_noge_zbirni")
 
 # Podfolder za X-Z putanje centra mase
-DIR_XZ_TRAJ         = os.path.join(BASE_OUT, "grafici_xz_putanje_com")
+DIR_XZ_TRAJ           = os.path.join(BASE_OUT, "grafici_xz_putanje_com")
 
 # Podfolder za sve tabele
-DIR_TABLES          = os.path.join(BASE_OUT, "tabele_rezultati")
+DIR_TABLES            = os.path.join(BASE_OUT, "tabele_rezultati")
 
 ALL_DIRS = [
     DIR_STAB_INDIVIDUAL, DIR_STAB_SUMMARY,
     DIR_INER_INDIVIDUAL, DIR_INER_SUMMARY,
     DIR_KIN_OMEGA, DIR_KIN_ALPHA,
+    DIR_MOM_INDIVIDUAL, DIR_MOM_SUMMARY,
+    DIR_ENG_INDIVIDUAL, DIR_ENG_SUMMARY,
+    DIR_TORQUE_INDIVIDUAL, DIR_TORQUE_SUMMARY,
+    DIR_KNEE_IND, DIR_KNEE_SUM,
     DIR_XZ_TRAJ, DIR_TABLES
 ]
 
@@ -152,6 +168,16 @@ def clean_and_interpolate_signal(arr, vis=None, vis_threshold=0.35):
 
 def interp_seg(p_prox, p_dist, ratio):
     return p_prox + ratio * (p_dist - p_prox)
+
+def calculate_angle_3d_series(a, b, c):
+    """Računa ugao u zglobovima B u 3D prostoru kroz seriju frejmova"""
+    ba = a - b
+    bc = c - b
+    norm_ba = np.linalg.norm(ba, axis=1)
+    norm_bc = np.linalg.norm(bc, axis=1)
+    dot_prod = np.sum(ba * bc, axis=1)
+    cosine_angle = np.clip(dot_prod / (norm_ba * norm_bc + 1e-7), -1.0, 1.0)
+    return np.degrees(np.arccos(cosine_angle))
 
 def compute_fused_torso_orientation_3d(pts_m):
     n = len(pts_m)
@@ -241,8 +267,26 @@ table_inertia_rows = []
 
 table4_master_rows = []
 
+global_momentum_dict = {}
+global_cycles_momentum = {}
+table_momentum_rows = []
+
+global_energy_dict = {}
+global_cycles_energy = {}
+table_energy_rows = []
+
+global_torque_dict = {}
+global_cycles_torque = {}
+table_torque_rows = []
+
+global_knee_dict = {}
+global_cycles_knee = {}
+table_knee_rows = []
+
+processed_names = set()
+
 print("\n" + "="*125)
-print("  POKRETANJE OBJEDINJENE ANALIZE: KINEMATIKA, MOMENT INERCIJE, STABILNOST I X-Z PUTANJE")
+print("  POKRETANJE OBJEDINJENE ANALIZE: KINEMATIKA, INERCIJA, STABILNOST, MOMENT IMPULSA, ENERGIJA, MOMENT SILE I KOLENO")
 print("="*125 + "\n")
 
 for file in sorted(all_files):
@@ -257,6 +301,10 @@ for file in sorted(all_files):
     shoe_size = athlete_data["shoe_size"]
     is_skater = "klizanje" in atype.lower()
     clean_name = athlete_key.upper() if athlete_key else os.path.basename(file).split('_')[0].upper()
+
+    if clean_name in processed_names:
+        continue
+    processed_names.add(clean_name)
 
     if "x_0" not in df_raw.columns and "X_0" not in df_raw.columns:
         continue
@@ -330,8 +378,8 @@ for file in sorted(all_files):
                 s = pd.Series(pts_m[:, lm, ax_i])
                 pts_m[:, lm, ax_i] = s.interpolate(method='linear', limit_direction='both').bfill().ffill().values
 
-    # Kalibracija Z dubine
-    hip_width_real = 0.17 * height_m
+    # Kalibracija Z dubine (De Leva 1996, Tabela 3: Bispinous Breadth / Stature = 257.5 mm / 1735 mm = 14.84%)
+    hip_width_real = 0.1484 * height_m
     hip_width_meas = np.median(np.linalg.norm(pts_m[:, 23, :2] - pts_m[:, 24, :2], axis=1))
     z_correction = np.clip(hip_width_real / (hip_width_meas + 1e-5), 0.35, 0.65)
     pts_m[:, :, 2] = pts_m[:, :, 2] * z_correction
@@ -348,7 +396,15 @@ for file in sorted(all_files):
     phase_x = np.linspace(0, 100, dense_samples)
     theta_deg = np.degrees(theta_B)
 
-    # 5. Segmenti i centri mase (De Leva 1996)
+    win_dyn_kin = max(11, min(25, n_frames if n_frames % 2 != 0 else n_frames - 1))
+    omega_B = savgol_filter(theta_B, window_length=win_dyn_kin, polyorder=2, deriv=1, delta=dt)
+    floor_rad_s = np.deg2rad(180.0 if is_skater else 120.0)
+    omega_B = np.maximum(omega_B, floor_rad_s)
+    omega_deg_s = np.degrees(omega_B)
+    alpha_deg_s2 = savgol_filter(omega_deg_s, window_length=win_dyn_kin, polyorder=2, deriv=1, delta=dt)
+    alpha_B = savgol_filter(theta_B, window_length=win_dyn_kin, polyorder=2, deriv=2, delta=dt)
+
+    # 5. Segmenti i centri mase (De Leva 1996, Tabela 4)
     mid_sh_m = (pts_m[:, 11, :] + pts_m[:, 12, :]) / 2.0
     mid_hp_m = (pts_m[:, 23, :] + pts_m[:, 24, :]) / 2.0
     head_v_m = pts_m[:, 0, :] + 0.5 * (pts_m[:, 0, :] - mid_sh_m)
@@ -371,7 +427,6 @@ for file in sorted(all_files):
     }
 
     seg_m = {k: interp_seg(p1, p2, DE_LEVA_FEMALE[k]["pos"]) for k, (p1, p2) in seg_endpoints.items()}
-    # Precizne krajnje tačke za stopala i šake za CoM
     seg_m_com = seg_m.copy()
     seg_m_com["R_Hand"] = pts_m[:, 16, :]
     seg_m_com["L_Hand"] = pts_m[:, 15, :]
@@ -384,39 +439,42 @@ for file in sorted(all_files):
         com_m += m_frac * s_coords
 
     # -------------------------------------------------------------------------
-    # A) PRORAČUN MOMENTA INERCIJE
+    # A) PRORAČUN MOMENTA INERCIJE TELA (DE LEVA 1996 + ŠTAJNEROVA TEOREMA)
     # -------------------------------------------------------------------------
     axis_x_inst = 0.5 * (pts_m[:, p_ank, 0] + mid_hp_m[:, 0])
     axis_z_inst = 0.5 * (pts_m[:, p_ank, 2] + mid_hp_m[:, 2])
     
-    win_smooth = min(13, n_frames if n_frames % 2 != 0 else n_frames - 1)
-    win_smooth = max(5, win_smooth)
+    win_smooth = max(5, min(13, n_frames if n_frames % 2 != 0 else n_frames - 1))
     axis_x = savgol_filter(axis_x_inst, window_length=win_smooth, polyorder=2)
     axis_z = savgol_filter(axis_z_inst, window_length=win_smooth, polyorder=2)
 
-    support_leg_names = ["L_Thigh", "L_Shank", "L_Foot"] if planted_side == "left" else ["R_Thigh", "R_Shank", "R_Foot"]
     I_B_raw = np.zeros(n_frames)
-    max_arm_len = 0.82 * (height_m / 1.65)
-    max_leg_len = 0.96 * (height_m / 1.65)
+    max_arm_len = 0.85 * (height_m / 1.65)
+    max_leg_len = 1.00 * (height_m / 1.65)
 
-    for seg_name, s_coords in seg_m.items():
+    for seg_name, (p_prox, p_dist) in seg_endpoints.items():
         m_frac = DE_LEVA_FEMALE[seg_name]["mass"]
         seg_mass = m_frac * weight_kg
-        if seg_name not in support_leg_names:
-            r_val = np.sqrt((s_coords[:, 0] - axis_x)**2 + (s_coords[:, 2] - axis_z)**2)
-            if "Arm" in seg_name or "Hand" in seg_name or "Forearm" in seg_name:
-                r_val = np.clip(r_val, 0.08, max_arm_len)
-            elif "Thigh" in seg_name or "Shank" in seg_name or "Foot" in seg_name:
-                r_val = np.clip(r_val, 0.12, max_leg_len)
-            else:
-                r_val = np.clip(r_val, 0.04, 0.24)
-            I_B_raw += seg_mass * (r_val ** 2)
+        s_com = seg_m[seg_name]
+        
+        r_val = np.sqrt((s_com[:, 0] - axis_x)**2 + (s_com[:, 2] - axis_z)**2)
+        
+        if "Arm" in seg_name or "Hand" in seg_name or "Forearm" in seg_name:
+            r_val = np.clip(r_val, 0.05, max_arm_len)
+        elif "Thigh" in seg_name or "Shank" in seg_name or "Foot" in seg_name:
+            r_val = np.clip(r_val, 0.03, max_leg_len)
+        else:
+            r_val = np.clip(r_val, 0.02, 0.25)
+            
+        seg_len = np.linalg.norm(p_dist - p_prox, axis=1)
+        r_z_coef = DE_LEVA_FEMALE[seg_name].get("r_z", 0.20)
+        I_0 = seg_mass * ((r_z_coef * seg_len) ** 2)
+        
+        I_B_raw += I_0 + seg_mass * (r_val ** 2)
 
-    win_dyn_iner = min(17, n_frames if n_frames % 2 != 0 else n_frames - 1)
-    win_dyn_iner = max(9, win_dyn_iner)
+    win_dyn_iner = max(9, min(17, n_frames if n_frames % 2 != 0 else n_frames - 1))
     I_B = savgol_filter(I_B_raw, window_length=win_dyn_iner, polyorder=2)
-    I_B = np.maximum(I_B, 0.40)
-    I_L = 0.085 * (weight_kg / 49.5) * (height_m / 1.65)**2
+    I_B = np.maximum(I_B, 0.35)
 
     rev_cycles_I = []
     for krug_num in range(1, full_rotations_count + 1):
@@ -428,7 +486,7 @@ for file in sorted(all_files):
         deg_label = f"{krug_num}. okret ({int(deg_start)}°–{int(deg_end)}°)"
         rev_cycles_I.append((I_norm, deg_label))
 
-    global_inertia_dict[clean_name] = (time_axis, I_B, I_L, atype)
+    global_inertia_dict[clean_name] = (time_axis, I_B, atype)
     global_cycles_inertia[clean_name] = (phase_x, rev_cycles_I, atype)
 
     table_inertia_rows.append({
@@ -440,7 +498,6 @@ for file in sorted(all_files):
         "I_B min [kg*m2]": round(np.min(I_B), 2),
         "I_B max [kg*m2]": round(np.max(I_B), 2),
         "I_B sr [kg*m2]": round(np.mean(I_B), 2),
-        "I_L noga [kg*m2]": round(I_L, 3),
         "Modulacija Delta I [kg*m2]": round(np.max(I_B) - np.min(I_B), 2)
     })
 
@@ -455,7 +512,6 @@ for file in sorted(all_files):
     ax1.axhline(np.mean(I_B), color='#34d399', linestyle='--', linewidth=1.6, label=f'Srednji I_B ({np.mean(I_B):.2f} kg*m²)')
     ax1.axhline(np.max(I_B), color='#fb7185', linestyle=':', linewidth=1.4, label=f'Maks I_B ({np.max(I_B):.2f} kg*m²)')
     ax1.axhline(np.min(I_B), color='#a78bfa', linestyle=':', linewidth=1.4, label=f'Min I_B ({np.min(I_B):.2f} kg*m²)')
-    ax1.axhline(I_L, color='#facc15', linestyle='-.', linewidth=1.3, label=f'Stajna noga I_L ({I_L:.3f} kg*m²)')
     ax1.set_xlabel("Vreme [s]", fontsize=10.5, fontweight='bold', color='#94a3b8')
     ax1.set_ylabel("Moment inercije I_B [kg*m²]", fontsize=10.5, fontweight='bold', color='#94a3b8')
     ax1.set_title(f"Dinamika inercije kroz vreme ({t_start}s - {t_end}s)\nUkupno rotacija: {total_rotations:.2f} | Pivot: {pivot_name}", fontsize=11.5, fontweight='bold', color='#ffffff', pad=12)
@@ -481,8 +537,7 @@ for file in sorted(all_files):
     # B) PRORAČUN RAVNOTEŽE I TOPPLE UGLA (LOTT & LAWS 2012)
     # -------------------------------------------------------------------------
     stance_mid_foot = (pts_m[:, p_ank, :] + pts_m[:, p_toe, :]) / 2.0
-    win_piv = min(15, n_frames if n_frames % 2 != 0 else n_frames - 1)
-    win_piv = max(5, win_piv)
+    win_piv = max(5, min(15, n_frames if n_frames % 2 != 0 else n_frames - 1))
     pivot_x_t = savgol_filter(median_filter(stance_mid_foot[:, 0], size=3), window_length=win_piv, polyorder=1)
     pivot_z_t = savgol_filter(median_filter(stance_mid_foot[:, 2], size=3), window_length=win_piv, polyorder=1)
 
@@ -497,12 +552,10 @@ for file in sorted(all_files):
         arr_rel[np.abs(arr_rel - med_r) > 3.0 * mad_r] = med_r
 
     radii_m = np.sqrt(com_x_rel**2 + com_z_rel**2)
-    win_rad = min(11, n_frames if n_frames % 2 != 0 else n_frames - 1)
-    win_rad = max(5, win_rad)
+    win_rad = max(5, min(11, n_frames if n_frames % 2 != 0 else n_frames - 1))
     
     if clean_name in ["SCEREBAKOVA", "VALIEVA", "SHCHERBAKOVA", "KAMILAVALIEVA"]:
-        d_com_m = savgol_filter(median_filter(radii_m, size=5), window_length=win_rad, polyorder=2)
-        d_com_m = d_com_m * 0.50
+        d_com_m = savgol_filter(median_filter(radii_m, size=5), window_length=win_rad, polyorder=2) * 0.50
     else:
         d_com_m = savgol_filter(median_filter(radii_m, size=3), window_length=win_rad, polyorder=2)
 
@@ -594,16 +647,6 @@ for file in sorted(all_files):
     # -------------------------------------------------------------------------
     # C) PRORAČUN KINEMATIKE (UGAONA BRZINA I UBRZANJE)
     # -------------------------------------------------------------------------
-    win_dyn_kin = min(25, n_frames if n_frames % 2 != 0 else n_frames - 1)
-    win_dyn_kin = max(11, win_dyn_kin)
-
-    omega_B = savgol_filter(theta_B, window_length=win_dyn_kin, polyorder=2, deriv=1, delta=dt)
-    floor_rad_s = np.deg2rad(180.0 if is_skater else 120.0)
-    omega_B = np.maximum(omega_B, floor_rad_s)
-    omega_deg_s = np.degrees(omega_B)
-
-    alpha_deg_s2 = savgol_filter(omega_deg_s, window_length=win_dyn_kin, polyorder=2, deriv=1, delta=dt)
-
     rev_cycles_omega = []
     rev_cycles_alpha = []
 
@@ -697,7 +740,260 @@ for file in sorted(all_files):
     plt.close()
 
     # -------------------------------------------------------------------------
-    # D) PRORAČUN I CRTANJE SPIRALNE X-Z PUTANJE CENTRA MASE
+    # C1) PRORAČUN MOMENTA IMPULSA (L = I_B * omega_B)
+    # -------------------------------------------------------------------------
+    L_rot = I_B * omega_B  # [kg*m^2/s]
+
+    rev_cycles_L = []
+    for krug_num in range(1, full_rotations_count + 1):
+        deg_start = (krug_num - 1) * 360.0
+        deg_end = krug_num * 360.0
+        deg_grid = np.linspace(deg_start, deg_end, dense_samples)
+        t_grid = np.interp(deg_grid, theta_deg, time_axis)
+        L_norm = np.interp(t_grid, time_axis, L_rot)
+        deg_label = f"{krug_num}. okret ({int(deg_start)}°–{int(deg_end)}°)"
+        rev_cycles_L.append((L_norm, deg_label))
+
+    global_momentum_dict[clean_name] = (time_axis, L_rot, atype)
+    global_cycles_momentum[clean_name] = (phase_x, rev_cycles_L, atype)
+
+    table_momentum_rows.append({
+        "Atleta": clean_name,
+        "Tip": atype,
+        "Ukupno okreta": round(total_rotations, 2),
+        "Prikazano celih": full_rotations_count,
+        "L min [kg*m2/s]": round(np.min(L_rot), 2),
+        "L max [kg*m2/s]": round(np.max(L_rot), 2),
+        "L sr [kg*m2/s]": round(np.mean(L_rot), 2),
+        "L SD [kg*m2/s]": round(np.std(L_rot), 2)
+    })
+
+    # Pojedinačni grafik: Moment impulsa
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15.5, 6.5), facecolor='#0b0f19')
+    for ax in (ax1, ax2):
+        ax.set_facecolor('#0b0f19')
+        ax.grid(True, linestyle='--', alpha=0.35, color='#1e293b')
+        ax.tick_params(colors='#94a3b8', labelsize=9.5)
+
+    ax1.plot(time_axis, L_rot, color='#a78bfa', linewidth=2.4, label='Moment impulsa L(t) [kg·m²/s]')
+    ax1.axhline(np.mean(L_rot), color='#34d399', linestyle='--', linewidth=1.6, label=f'Srednji L ({np.mean(L_rot):.2f} kg·m²/s)')
+    ax1.axhline(np.max(L_rot), color='#fb7185', linestyle=':', linewidth=1.4, label=f'Maks L ({np.max(L_rot):.2f} kg·m²/s)')
+    ax1.axhline(np.min(L_rot), color='#facc15', linestyle=':', linewidth=1.4, label=f'Min L ({np.min(L_rot):.2f} kg·m²/s)')
+    ax1.fill_between(time_axis, 0, L_rot, color='#a78bfa', alpha=0.15)
+    ax1.set_xlabel("Vreme [s]", fontsize=10.5, fontweight='bold', color='#94a3b8')
+    ax1.set_ylabel("Moment impulsa L [kg·m²/s]", fontsize=10.5, fontweight='bold', color='#94a3b8')
+    ax1.set_title(f"Dinamika momenta impulsa kroz vreme ({t_start}s - {t_end}s)\nUkupno rotacija: {total_rotations:.2f}", fontsize=11.5, fontweight='bold', color='#ffffff', pad=12)
+    ax1.set_xlim(0, time_axis[-1])
+    ax1.legend(loc='upper right', facecolor='#111827', edgecolor='#374151', labelcolor='white', fontsize=8.5)
+
+    for c_i, (L_c, lbl) in enumerate(rev_cycles_L):
+        col = NEON_COLORS[c_i % len(NEON_COLORS)]
+        ax2.plot(phase_x, L_c, linewidth=2.4, color=col, label=lbl)
+
+    ax2.set_xlabel("Faza okreta [%] (0% = Početak ◄ ► 100% = Završen pun krug)", fontsize=10.5, fontweight='bold', color='#94a3b8')
+    ax2.set_ylabel("Moment impulsa L [kg·m²/s]", fontsize=10.5, fontweight='bold', color='#94a3b8')
+    ax2.set_title(f"Profil L po celim okretima ({full_rotations_count} puna kruga)\nOčuvanje i modulacija momenta impulsa", fontsize=11.5, fontweight='bold', color='#ffffff', pad=12)
+    ax2.set_xlim(0, 100)
+    ax2.legend(loc='upper right', facecolor='#111827', edgecolor='#374151', labelcolor='white', fontsize=8.5)
+
+    plt.suptitle(f"MOMENT IMPULSA ROTACIJE: {clean_name} ({atype})", fontsize=13.5, fontweight='bold', color='#ffffff', y=0.98)
+    plt.tight_layout()
+    plt.savefig(os.path.join(DIR_MOM_INDIVIDUAL, f"moment_impulsa_{clean_name.lower()}.png"), dpi=300, facecolor='#0b0f19')
+    plt.close()
+
+    # -------------------------------------------------------------------------
+    # C2) PRORAČUN ROTACIONE KINETIČKE ENERGIJE (E_k = 0.5 * I_B * omega_B^2)
+    # -------------------------------------------------------------------------
+    E_rot = 0.5 * I_B * (omega_B ** 2)  # [J]
+
+    rev_cycles_E = []
+    for krug_num in range(1, full_rotations_count + 1):
+        deg_start = (krug_num - 1) * 360.0
+        deg_end = krug_num * 360.0
+        deg_grid = np.linspace(deg_start, deg_end, dense_samples)
+        t_grid = np.interp(deg_grid, theta_deg, time_axis)
+        E_norm = np.interp(t_grid, time_axis, E_rot)
+        deg_label = f"{krug_num}. okret ({int(deg_start)}°–{int(deg_end)}°)"
+        rev_cycles_E.append((E_norm, deg_label))
+
+    global_energy_dict[clean_name] = (time_axis, E_rot, atype)
+    global_cycles_energy[clean_name] = (phase_x, rev_cycles_E, atype)
+
+    table_energy_rows.append({
+        "Atleta": clean_name,
+        "Tip": atype,
+        "Ukupno okreta": round(total_rotations, 2),
+        "Prikazano celih": full_rotations_count,
+        "E_k min [J]": round(np.min(E_rot), 2),
+        "E_k max [J]": round(np.max(E_rot), 2),
+        "E_k sr [J]": round(np.mean(E_rot), 2),
+        "E_k SD [J]": round(np.std(E_rot), 2)
+    })
+
+    # Pojedinačni grafik: Rotaciona kinetička energija
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15.5, 6.5), facecolor='#0b0f19')
+    for ax in (ax1, ax2):
+        ax.set_facecolor('#0b0f19')
+        ax.grid(True, linestyle='--', alpha=0.35, color='#1e293b')
+        ax.tick_params(colors='#94a3b8', labelsize=9.5)
+
+    ax1.plot(time_axis, E_rot, color='#00f5d4', linewidth=2.4, label='Rotaciona energija E_k(t) [J]')
+    ax1.axhline(np.mean(E_rot), color='#facc15', linestyle='--', linewidth=1.6, label=f'Srednja E_k ({np.mean(E_rot):.2f} J)')
+    ax1.axhline(np.max(E_rot), color='#fb7185', linestyle=':', linewidth=1.4, label=f'Maks E_k ({np.max(E_rot):.2f} J)')
+    ax1.axhline(np.min(E_rot), color='#a78bfa', linestyle=':', linewidth=1.4, label=f'Min E_k ({np.min(E_rot):.2f} J)')
+    ax1.fill_between(time_axis, 0, E_rot, color='#00f5d4', alpha=0.15)
+    ax1.set_xlabel("Vreme [s]", fontsize=10.5, fontweight='bold', color='#94a3b8')
+    ax1.set_ylabel("Rotaciona kinetička energija E_k [J]", fontsize=10.5, fontweight='bold', color='#94a3b8')
+    ax1.set_title(f"Dinamika kinetičke energije rotacije ({t_start}s - {t_end}s)\nUkupno rotacija: {total_rotations:.2f}", fontsize=11.5, fontweight='bold', color='#ffffff', pad=12)
+    ax1.set_xlim(0, time_axis[-1])
+    ax1.legend(loc='upper right', facecolor='#111827', edgecolor='#374151', labelcolor='white', fontsize=8.5)
+
+    for c_i, (E_c, lbl) in enumerate(rev_cycles_E):
+        col = NEON_COLORS[c_i % len(NEON_COLORS)]
+        ax2.plot(phase_x, E_c, linewidth=2.4, color=col, label=lbl)
+
+    ax2.set_xlabel("Faza okreta [%] (0% = Početak ◄ ► 100% = Završen pun krug)", fontsize=10.5, fontweight='bold', color='#94a3b8')
+    ax2.set_ylabel("Rotaciona kinetička energija E_k [J]", fontsize=10.5, fontweight='bold', color='#94a3b8')
+    ax2.set_title(f"Profil E_k po celim okretima ({full_rotations_count} puna kruga)\nEnergetska modulacija po ciklusima", fontsize=11.5, fontweight='bold', color='#ffffff', pad=12)
+    ax2.set_xlim(0, 100)
+    ax2.legend(loc='upper right', facecolor='#111827', edgecolor='#374151', labelcolor='white', fontsize=8.5)
+
+    plt.suptitle(f"ROTACIONA KINETIČKA ENERGIJA: {clean_name} ({atype})", fontsize=13.5, fontweight='bold', color='#ffffff', y=0.98)
+    plt.tight_layout()
+    plt.savefig(os.path.join(DIR_ENG_INDIVIDUAL, f"kineticka_energija_{clean_name.lower()}.png"), dpi=300, facecolor='#0b0f19')
+    plt.close()
+
+    # -------------------------------------------------------------------------
+    # C3) PRORAČUN MOMENTA SILE (T = I_B * alpha_B + dI/dt * omega_B)
+    # -------------------------------------------------------------------------
+    dI_B_dt = np.clip(savgol_filter(I_B, window_length=win_dyn_iner, polyorder=2, deriv=1, delta=dt), -6.0, 6.0)
+    T_rot = I_B * alpha_B + dI_B_dt * omega_B  # [Nm]
+    T_rot = savgol_filter(T_rot, window_length=win_dyn_iner, polyorder=2)
+
+    rev_cycles_T = []
+    for krug_num in range(1, full_rotations_count + 1):
+        deg_start = (krug_num - 1) * 360.0
+        deg_end = krug_num * 360.0
+        deg_grid = np.linspace(deg_start, deg_end, dense_samples)
+        t_grid = np.interp(deg_grid, theta_deg, time_axis)
+        T_norm = np.interp(t_grid, time_axis, T_rot)
+        deg_label = f"{krug_num}. okret ({int(deg_start)}°–{int(deg_end)}°)"
+        rev_cycles_T.append((T_norm, deg_label))
+
+    global_torque_dict[clean_name] = (time_axis, T_rot, atype)
+    global_cycles_torque[clean_name] = (phase_x, rev_cycles_T, atype)
+
+    table_torque_rows.append({
+        "Atleta": clean_name,
+        "Tip": atype,
+        "Ukupno okreta": round(total_rotations, 2),
+        "Prikazano celih": full_rotations_count,
+        "T min [Nm]": round(np.min(T_rot), 2),
+        "T max [Nm]": round(np.max(T_rot), 2),
+        "T sr [Nm]": round(np.mean(T_rot), 2),
+        "T SD [Nm]": round(np.std(T_rot), 2),
+        "Maks |T| [Nm]": round(np.max(np.abs(T_rot)), 2)
+    })
+
+    # Pojedinačni grafik: Moment sile
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15.5, 6.5), facecolor='#0b0f19')
+    for ax in (ax1, ax2):
+        ax.set_facecolor('#0b0f19')
+        ax.grid(True, linestyle='--', alpha=0.35, color='#1e293b')
+        ax.tick_params(colors='#94a3b8', labelsize=9.5)
+
+    ax1.plot(time_axis, T_rot, color='#f77f00', linewidth=2.4, label='Moment sile T(t) [Nm]')
+    ax1.axhline(0, color='#64748b', linestyle=':', linewidth=1.2)
+    ax1.axhline(np.mean(T_rot), color='#34d399', linestyle='--', linewidth=1.6, label=f'Srednji T ({np.mean(T_rot):.2f} Nm)')
+    ax1.axhline(np.max(T_rot), color='#fb7185', linestyle=':', linewidth=1.4, label=f'Maks T ({np.max(T_rot):.2f} Nm)')
+    ax1.axhline(np.min(T_rot), color='#a78bfa', linestyle=':', linewidth=1.4, label=f'Min T ({np.min(T_rot):.2f} Nm)')
+    ax1.set_xlabel("Vreme [s]", fontsize=10.5, fontweight='bold', color='#94a3b8')
+    ax1.set_ylabel("Moment sile rotacije T [Nm]", fontsize=10.5, fontweight='bold', color='#94a3b8')
+    ax1.set_title(f"Dinamika momenta sile kroz vreme ({t_start}s - {t_end}s)\nUkupno rotacija: {total_rotations:.2f}", fontsize=11.5, fontweight='bold', color='#ffffff', pad=12)
+    ax1.set_xlim(0, time_axis[-1])
+    ax1.legend(loc='upper right', facecolor='#111827', edgecolor='#374151', labelcolor='white', fontsize=8.5)
+
+    for c_i, (T_c, lbl) in enumerate(rev_cycles_T):
+        col = NEON_COLORS[c_i % len(NEON_COLORS)]
+        ax2.plot(phase_x, T_c, linewidth=2.4, color=col, label=lbl)
+
+    ax2.axhline(0, color='#64748b', linestyle=':', linewidth=1.2)
+    ax2.set_xlabel("Faza okreta [%] (0% = Početak ◄ ► 100% = Završen pun krug)", fontsize=10.5, fontweight='bold', color='#94a3b8')
+    ax2.set_ylabel("Moment sile T [Nm]", fontsize=10.5, fontweight='bold', color='#94a3b8')
+    ax2.set_title(f"Profil T po celim okretima ({full_rotations_count} puna kruga)\nCiklična dinamika obrtnog momenta", fontsize=11.5, fontweight='bold', color='#ffffff', pad=12)
+    ax2.set_xlim(0, 100)
+    ax2.legend(loc='upper right', facecolor='#111827', edgecolor='#374151', labelcolor='white', fontsize=8.5)
+
+    plt.suptitle(f"MOMENT SILE ROTACIJE (TORQUE): {clean_name} ({atype})", fontsize=13.5, fontweight='bold', color='#ffffff', y=0.98)
+    plt.tight_layout()
+    plt.savefig(os.path.join(DIR_TORQUE_INDIVIDUAL, f"moment_sile_{clean_name.lower()}.png"), dpi=300, facecolor='#0b0f19')
+    plt.close()
+
+    # -------------------------------------------------------------------------
+    # D) KINEMATIKA ZGLOBA KOLENA STAJNE NOGE (KNEE FLEXION)
+    # -------------------------------------------------------------------------
+    hip_pts = pts_m[:, p_hip, :]
+    knee_pts = pts_m[:, p_knee, :]
+    ank_pts = pts_m[:, p_ank, :]
+    
+    knee_angles_raw = calculate_angle_3d_series(hip_pts, knee_pts, ank_pts)
+    knee_angles = savgol_filter(median_filter(knee_angles_raw, size=3), window_length=win_dyn_kin, polyorder=2)
+    knee_angles = np.clip(knee_angles, 90.0, 180.0)
+
+    rev_cycles_knee_list = []
+    for krug_num in range(1, full_rotations_count + 1):
+        deg_start = (krug_num - 1) * 360.0
+        deg_end = krug_num * 360.0
+        deg_grid = np.linspace(deg_start, deg_end, dense_samples)
+        t_grid = np.interp(deg_grid, theta_deg, time_axis)
+        knee_norm = np.interp(t_grid, time_axis, knee_angles)
+        rev_cycles_knee_list.append((knee_norm, f"{krug_num}. okret"))
+
+    global_knee_dict[clean_name] = (time_axis, knee_angles, theta_topple_deg, atype)
+    global_cycles_knee[clean_name] = (phase_x, rev_cycles_knee_list, atype)
+
+    table_knee_rows.append({
+        "Atleta": clean_name, "Tip": atype, "Stajna noga": pivot_name,
+        "Srednji ugao kolena [°]": round(np.mean(knee_angles), 1),
+        "Min ugao (Maks fleksija) [°]": round(np.min(knee_angles), 1),
+        "Maks ugao (Ekstenzija) [°]": round(np.max(knee_angles), 1),
+        "Opseg fleksije Delta [°]": round(np.max(knee_angles) - np.min(knee_angles), 1)
+    })
+
+    # Pojedinačni grafik: Koleno stajne noge
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15.5, 6.5), facecolor='#0b0f19')
+    for ax in (ax1, ax2):
+        ax.set_facecolor('#0b0f19')
+        ax.grid(True, linestyle='--', alpha=0.35, color='#1e293b')
+        ax.tick_params(colors='#94a3b8', labelsize=9.5)
+        ax.set_ylim(100.0, 185.0)
+
+    ax1.plot(time_axis, knee_angles, color='#34d399', linewidth=2.4, label='Ugao u kolenu stajne noge [°]')
+    ax1.axhline(np.mean(knee_angles), color='#fb7185', linestyle='--', linewidth=1.6, label=f'Srednji ugao ({np.mean(knee_angles):.1f}°)')
+    ax1.axhline(180.0, color='#64748b', linestyle=':', linewidth=1.2, label='Potpuno opružena noga (180°)')
+    ax1.set_xlabel("Vreme [s]", fontsize=10.5, fontweight='bold', color='#94a3b8')
+    ax1.set_ylabel("Ugao kolena [°]", fontsize=10.5, fontweight='bold', color='#94a3b8')
+    ax1.set_title(f"Fleksija stajnog kolena ({pivot_name})\nSrednja ekstenzija: {np.mean(knee_angles):.1f}°", fontsize=11.5, fontweight='bold', color='#ffffff', pad=12)
+    ax1.set_xlim(0, time_axis[-1])
+    ax1.legend(loc='lower right', facecolor='#111827', edgecolor='#374151', labelcolor='white', fontsize=8.5)
+
+    for c_i, (k_c, lbl) in enumerate(rev_cycles_knee_list):
+        col = NEON_COLORS[c_i % len(NEON_COLORS)]
+        ax2.plot(phase_x, k_c, linewidth=2.4, color=col, label=lbl)
+
+    ax2.set_xlabel("Faza okreta [%]", fontsize=10.5, fontweight='bold', color='#94a3b8')
+    ax2.set_ylabel("Ugao kolena [°]", fontsize=10.5, fontweight='bold', color='#94a3b8')
+    ax2.set_title("Modulacija fleksije kolena po celim okretima", fontsize=11.5, fontweight='bold', color='#ffffff', pad=12)
+    ax2.set_xlim(0, 100)
+    ax2.legend(loc='lower right', facecolor='#111827', edgecolor='#374151', labelcolor='white', fontsize=8.5)
+
+    plt.suptitle(f"KINEMATIKA ZGLOBA KOLENA STAJNE NOGE: {clean_name} ({atype})", fontsize=13.5, fontweight='bold', color='#ffffff', y=0.98)
+    plt.tight_layout()
+    plt.savefig(os.path.join(DIR_KNEE_IND, f"koleno_{clean_name.lower()}.png"), dpi=300, facecolor='#0b0f19')
+    plt.close()
+
+    # -------------------------------------------------------------------------
+    # E) PRORAČUN I CRTANJE SPIRALNE X-Z PUTANJE CENTRA MASE
     # -------------------------------------------------------------------------
     anchor_pt = (pts_m[:, p_ank, :] + pts_m[:, p_toe, :]) / 2.0
     pivot_x_stat = np.median(anchor_pt[:, 0])
@@ -765,10 +1061,10 @@ for file in sorted(all_files):
     plt.savefig(os.path.join(DIR_XZ_TRAJ, f"putanja_xz_{clean_name.lower()}.png"), dpi=300, facecolor=fig.get_facecolor())
     plt.close()
 
-    print(f"[OBRADA ZAVRŠENA] {clean_name:<14} | {atype:<18} | Okreta: {total_rotations:4.2f} (Celih: {full_rotations_count:2d}) | θ sr: {np.mean(theta_topple_deg):4.2f}° | I_B sr: {np.mean(I_B):.2f} kg*m² | ω sr: {np.mean(omega_deg_s):5.1f} °/s")
+    print(f"[OBRADA ZAVRŠENA] {clean_name:<14} | {atype:<18} | Okreta: {total_rotations:4.2f} (Celih: {full_rotations_count:2d}) | θ sr: {np.mean(theta_topple_deg):4.2f}° | I_B sr: {np.mean(I_B):.2f} kg*m² | L sr: {np.mean(L_rot):.2f} kg*m²/s | T sr: {np.mean(T_rot):.2f} Nm | Koleno sr: {np.mean(knee_angles):5.1f}° | ω sr: {np.mean(omega_deg_s):5.1f} °/s")
 
 # =============================================================================
-# 4. SUMARNI UPOREDNI GRAFICI (STABILNOST I MOMENT INERCIJE)
+# 4. SUMARNI UPOREDNI GRAFICI (STABILNOST, INERCIJA, MOMENT IMPULSA, ENERGIJA, MOMENT SILE, KOLENO)
 # =============================================================================
 
 # 4.1 Zbirni topple ugao
@@ -835,7 +1131,7 @@ ax_sum1.set_facecolor('#0b0f19')
 ax_sum1.grid(True, linestyle='--', alpha=0.35, color='#1e293b')
 ax_sum1.tick_params(colors='#94a3b8', labelsize=9.5)
 
-for i, (name, (t_ax, i_val, i_leg, atp)) in enumerate(global_inertia_dict.items()):
+for i, (name, (t_ax, i_val, atp)) in enumerate(global_inertia_dict.items()):
     col = PALETTE_COLORS[i % len(PALETTE_COLORS)]
     lst = '-' if "balet" in atp.lower() else '--'
     plt.plot(t_ax, i_val, linewidth=2.2, color=col, linestyle=lst, label=f"{name} ({atp})")
@@ -881,6 +1177,191 @@ plt.subplots_adjust(top=0.88, bottom=0.12, left=0.07, right=0.95, wspace=0.20)
 plt.savefig(os.path.join(DIR_INER_SUMMARY, "zbirni_ciklusi_balet_vs_klizanje_inercija.png"), dpi=300, facecolor='#0b0f19')
 plt.close()
 
+# 4.5 Zbirni moment impulsa kroz vreme
+plt.figure(figsize=(12, 6.5), facecolor='#0b0f19')
+ax_sum_L = plt.gca()
+ax_sum_L.set_facecolor('#0b0f19')
+ax_sum_L.grid(True, linestyle='--', alpha=0.35, color='#1e293b')
+ax_sum_L.tick_params(colors='#94a3b8', labelsize=9.5)
+
+for i, (name, (t_ax, L_val, atp)) in enumerate(global_momentum_dict.items()):
+    col = PALETTE_COLORS[i % len(PALETTE_COLORS)]
+    lst = '-' if "balet" in atp.lower() else '--'
+    plt.plot(t_ax, L_val, linewidth=2.2, color=col, linestyle=lst, label=f"{name} ({atp})")
+
+plt.title("KOMPARACIJA MOMENTA IMPULSA L(t) KROZ 4 SEKUNDE ROTACIJE", fontsize=12.5, fontweight='bold', color='#ffffff', pad=15)
+plt.xlabel("Vreme rotacije [s]", fontsize=10.5, fontweight='bold', color='#94a3b8')
+plt.ylabel("Moment impulsa L [kg·m²/s]", fontsize=10.5, fontweight='bold', color='#94a3b8')
+plt.xlim(0, 4.0)
+plt.legend(loc='upper right', facecolor='#111827', edgecolor='#374151', labelcolor='white', fontsize=8.5)
+plt.tight_layout()
+plt.savefig(os.path.join(DIR_MOM_SUMMARY, "zbirni_moment_impulsa_vreme_4s.png"), dpi=300, facecolor='#0b0f19')
+plt.close()
+
+# 4.6 Balet vs Klizanje - Moment impulsa po okretima
+fig, (ax_b_L, ax_k_L) = plt.subplots(1, 2, figsize=(15.5, 6.5), facecolor='#0b0f19')
+for ax_sub in (ax_b_L, ax_k_L):
+    ax_sub.set_facecolor('#0b0f19')
+    ax_sub.grid(True, linestyle='--', alpha=0.35, color='#1e293b')
+    ax_sub.tick_params(colors='#94a3b8', labelsize=9.5)
+
+for name, (phase_x, cyc_list, atp) in global_cycles_momentum.items():
+    if len(cyc_list) == 0: continue
+    target_ax = ax_b_L if "balet" in atp.lower() else ax_k_L
+    all_cyc_matrix = np.array([c[0] for c in cyc_list])
+    mean_cyc = np.mean(all_cyc_matrix, axis=0)
+    col = PALETTE_COLORS[len(target_ax.lines) % len(PALETTE_COLORS)]
+    target_ax.plot(phase_x, mean_cyc, linewidth=2.5, label=f"{name} (srednji okret)")
+
+ax_b_L.set_title("BALET: Prosečan moment impulsa L tokom okreta (0-100%)", fontsize=11.5, fontweight='bold', color='#38bdf8', pad=12)
+ax_b_L.set_xlabel("Faza okreta [%]", fontsize=10.5, fontweight='bold', color='#94a3b8')
+ax_b_L.set_ylabel("Moment impulsa L [kg·m²/s]", fontsize=10.5, fontweight='bold', color='#94a3b8')
+ax_b_L.set_xlim(0, 100)
+ax_b_L.legend(loc='upper right', facecolor='#111827', edgecolor='#374151', labelcolor='white', fontsize=8.5)
+
+ax_k_L.set_title("UMETNIČKO KLIZANJE: Prosečan moment impulsa L tokom okreta (0-100%)", fontsize=11.5, fontweight='bold', color='#fb7185', pad=12)
+ax_k_L.set_xlabel("Faza okreta [%]", fontsize=10.5, fontweight='bold', color='#94a3b8')
+ax_k_L.set_ylabel("Moment impulsa L [kg·m²/s]", fontsize=10.5, fontweight='bold', color='#94a3b8')
+ax_k_L.set_xlim(0, 100)
+ax_k_L.legend(loc='upper right', facecolor='#111827', edgecolor='#374151', labelcolor='white', fontsize=8.5)
+
+plt.suptitle("KOMPARACIJA DINAMIKE MOMENTA IMPULSA TOKOM CELIH OKRETA", fontsize=13.5, fontweight='bold', color='#ffffff', y=0.98)
+plt.subplots_adjust(top=0.88, bottom=0.12, left=0.07, right=0.95, wspace=0.20)
+plt.savefig(os.path.join(DIR_MOM_SUMMARY, "zbirni_ciklusi_balet_vs_klizanje_moment_impulsa.png"), dpi=300, facecolor='#0b0f19')
+plt.close()
+
+# 4.7 Zbirna kinetička energija rotacije kroz vreme
+plt.figure(figsize=(12, 6.5), facecolor='#0b0f19')
+ax_sum_E = plt.gca()
+ax_sum_E.set_facecolor('#0b0f19')
+ax_sum_E.grid(True, linestyle='--', alpha=0.35, color='#1e293b')
+ax_sum_E.tick_params(colors='#94a3b8', labelsize=9.5)
+
+for i, (name, (t_ax, E_val, atp)) in enumerate(global_energy_dict.items()):
+    col = PALETTE_COLORS[i % len(PALETTE_COLORS)]
+    lst = '-' if "balet" in atp.lower() else '--'
+    plt.plot(t_ax, E_val, linewidth=2.2, color=col, linestyle=lst, label=f"{name} ({atp})")
+
+plt.title("KOMPARACIJA ROTACIONE KINETIČKE ENERGIJE E_k(t) KROZ 4 SEKUNDE ROTACIJE", fontsize=12.5, fontweight='bold', color='#ffffff', pad=15)
+plt.xlabel("Vreme rotacije [s]", fontsize=10.5, fontweight='bold', color='#94a3b8')
+plt.ylabel("Rotaciona energija E_k [J]", fontsize=10.5, fontweight='bold', color='#94a3b8')
+plt.xlim(0, 4.0)
+plt.legend(loc='upper right', facecolor='#111827', edgecolor='#374151', labelcolor='white', fontsize=8.5)
+plt.tight_layout()
+plt.savefig(os.path.join(DIR_ENG_SUMMARY, "zbirna_kineticka_energija_vreme_4s.png"), dpi=300, facecolor='#0b0f19')
+plt.close()
+
+# 4.8 Balet vs Klizanje - Kinetička energija po okretima
+fig, (ax_b_E, ax_k_E) = plt.subplots(1, 2, figsize=(15.5, 6.5), facecolor='#0b0f19')
+for ax_sub in (ax_b_E, ax_k_E):
+    ax_sub.set_facecolor('#0b0f19')
+    ax_sub.grid(True, linestyle='--', alpha=0.35, color='#1e293b')
+    ax_sub.tick_params(colors='#94a3b8', labelsize=9.5)
+
+for name, (phase_x, cyc_list, atp) in global_cycles_energy.items():
+    if len(cyc_list) == 0: continue
+    target_ax = ax_b_E if "balet" in atp.lower() else ax_k_E
+    all_cyc_matrix = np.array([c[0] for c in cyc_list])
+    mean_cyc = np.mean(all_cyc_matrix, axis=0)
+    col = PALETTE_COLORS[len(target_ax.lines) % len(PALETTE_COLORS)]
+    target_ax.plot(phase_x, mean_cyc, linewidth=2.5, label=f"{name} (srednji okret)")
+
+ax_b_E.set_title("BALET: Prosečna energija E_k tokom okreta (0-100%)", fontsize=11.5, fontweight='bold', color='#38bdf8', pad=12)
+ax_b_E.set_xlabel("Faza okreta [%]", fontsize=10.5, fontweight='bold', color='#94a3b8')
+ax_b_E.set_ylabel("Rotaciona energija E_k [J]", fontsize=10.5, fontweight='bold', color='#94a3b8')
+ax_b_E.set_xlim(0, 100)
+ax_b_E.legend(loc='upper right', facecolor='#111827', edgecolor='#374151', labelcolor='white', fontsize=8.5)
+
+ax_k_E.set_title("UMETNIČKO KLIZANJE: Prosečna energija E_k tokom okreta (0-100%)", fontsize=11.5, fontweight='bold', color='#fb7185', pad=12)
+ax_k_E.set_xlabel("Faza okreta [%]", fontsize=10.5, fontweight='bold', color='#94a3b8')
+ax_k_E.set_ylabel("Rotaciona energija E_k [J]", fontsize=10.5, fontweight='bold', color='#94a3b8')
+ax_k_E.set_xlim(0, 100)
+ax_k_E.legend(loc='upper right', facecolor='#111827', edgecolor='#374151', labelcolor='white', fontsize=8.5)
+
+plt.suptitle("KOMPARACIJA CIKLIČNE MODULACIJE ROTACIONE KINETIČKE ENERGIJE", fontsize=13.5, fontweight='bold', color='#ffffff', y=0.98)
+plt.subplots_adjust(top=0.88, bottom=0.12, left=0.07, right=0.95, wspace=0.20)
+plt.savefig(os.path.join(DIR_ENG_SUMMARY, "zbirni_ciklusi_balet_vs_klizanje_kineticka_energija.png"), dpi=300, facecolor='#0b0f19')
+plt.close()
+
+# 4.9 Zbirni moment sile kroz vreme
+plt.figure(figsize=(12, 6.5), facecolor='#0b0f19')
+ax_sum_T = plt.gca()
+ax_sum_T.set_facecolor('#0b0f19')
+ax_sum_T.grid(True, linestyle='--', alpha=0.35, color='#1e293b')
+ax_sum_T.tick_params(colors='#94a3b8', labelsize=9.5)
+
+for i, (name, (t_ax, T_val, atp)) in enumerate(global_torque_dict.items()):
+    col = PALETTE_COLORS[i % len(PALETTE_COLORS)]
+    lst = '-' if "balet" in atp.lower() else '--'
+    plt.plot(t_ax, T_val, linewidth=2.2, color=col, linestyle=lst, label=f"{name} ({atp})")
+
+plt.axhline(0, color='#64748b', linestyle=':', linewidth=1.2)
+plt.title("KOMPARACIJA MOMENTA SILE ROTACIJE T(t) KROZ 4 SEKUNDE", fontsize=12.5, fontweight='bold', color='#ffffff', pad=15)
+plt.xlabel("Vreme rotacije [s]", fontsize=10.5, fontweight='bold', color='#94a3b8')
+plt.ylabel("Moment sile T [Nm]", fontsize=10.5, fontweight='bold', color='#94a3b8')
+plt.xlim(0, 4.0)
+plt.legend(loc='upper right', facecolor='#111827', edgecolor='#374151', labelcolor='white', fontsize=8.5)
+plt.tight_layout()
+plt.savefig(os.path.join(DIR_TORQUE_SUMMARY, "zbirni_moment_sile_vreme_4s.png"), dpi=300, facecolor='#0b0f19')
+plt.close()
+
+# 4.10 Balet vs Klizanje - Moment sile po okretima
+fig, (ax_b_T, ax_k_T) = plt.subplots(1, 2, figsize=(15.5, 6.5), facecolor='#0b0f19')
+for ax_sub in (ax_b_T, ax_k_T):
+    ax_sub.set_facecolor('#0b0f19')
+    ax_sub.grid(True, linestyle='--', alpha=0.35, color='#1e293b')
+    ax_sub.tick_params(colors='#94a3b8', labelsize=9.5)
+
+for name, (phase_x, cyc_list, atp) in global_cycles_torque.items():
+    if len(cyc_list) == 0: continue
+    target_ax = ax_b_T if "balet" in atp.lower() else ax_k_T
+    all_cyc_matrix = np.array([c[0] for c in cyc_list])
+    mean_cyc = np.mean(all_cyc_matrix, axis=0)
+    col = PALETTE_COLORS[len(target_ax.lines) % len(PALETTE_COLORS)]
+    target_ax.plot(phase_x, mean_cyc, linewidth=2.5, label=f"{name} (srednji okret)")
+
+ax_b_T.axhline(0, color='#64748b', linestyle=':', linewidth=1.2)
+ax_b_T.set_title("BALET: Prosečan moment sile T tokom okreta (0-100%)", fontsize=11.5, fontweight='bold', color='#38bdf8', pad=12)
+ax_b_T.set_xlabel("Faza okreta [%]", fontsize=10.5, fontweight='bold', color='#94a3b8')
+ax_b_T.set_ylabel("Moment sile T [Nm]", fontsize=10.5, fontweight='bold', color='#94a3b8')
+ax_b_T.set_xlim(0, 100)
+ax_b_T.legend(loc='upper right', facecolor='#111827', edgecolor='#374151', labelcolor='white', fontsize=8.5)
+
+ax_k_T.axhline(0, color='#64748b', linestyle=':', linewidth=1.2)
+ax_k_T.set_title("UMETNIČKO KLIZANJE: Prosečan moment sile T tokom okreta (0-100%)", fontsize=11.5, fontweight='bold', color='#fb7185', pad=12)
+ax_k_T.set_xlabel("Faza okreta [%]", fontsize=10.5, fontweight='bold', color='#94a3b8')
+ax_k_T.set_ylabel("Moment sile T [Nm]", fontsize=10.5, fontweight='bold', color='#94a3b8')
+ax_k_T.set_xlim(0, 100)
+ax_k_T.legend(loc='upper right', facecolor='#111827', edgecolor='#374151', labelcolor='white', fontsize=8.5)
+
+plt.suptitle("KOMPARACIJA CIKLIČNE DINAMIKE MOMENTA SILE", fontsize=13.5, fontweight='bold', color='#ffffff', y=0.98)
+plt.subplots_adjust(top=0.88, bottom=0.12, left=0.07, right=0.95, wspace=0.20)
+plt.savefig(os.path.join(DIR_TORQUE_SUMMARY, "zbirni_ciklusi_balet_vs_klizanje_moment_sile.png"), dpi=300, facecolor='#0b0f19')
+plt.close()
+
+# 4.11 Zbirni Ugao Kolena Stajne Noge
+plt.figure(figsize=(12, 6.5), facecolor='#0b0f19')
+ax_sum_k = plt.gca()
+ax_sum_k.set_facecolor('#0b0f19')
+ax_sum_k.grid(True, linestyle='--', alpha=0.35, color='#1e293b')
+ax_sum_k.tick_params(colors='#94a3b8', labelsize=9.5)
+ax_sum_k.set_ylim(110.0, 185.0)
+
+for i, (name, (t_ax, k_val, th_val, atp)) in enumerate(global_knee_dict.items()):
+    col = PALETTE_COLORS[i % len(PALETTE_COLORS)]
+    lst = '-' if "balet" in atp.lower() else '--'
+    plt.plot(t_ax, k_val, linewidth=2.2, color=col, linestyle=lst, label=f"{name} ({atp})")
+
+plt.axhline(180.0, color='#64748b', linestyle=':', linewidth=1.4, label='Potpuna ekstenzija (180°)')
+plt.title("KOMPARACIJA FLEKSIJE KOLENA STAJNE NOGE: BALET VS. KLIZANJE", fontsize=12.5, fontweight='bold', color='#ffffff', pad=15)
+plt.xlabel("Vreme rotacije [s]", fontsize=10.5, fontweight='bold', color='#94a3b8')
+plt.ylabel("Ugao u kolenu [°]", fontsize=10.5, fontweight='bold', color='#94a3b8')
+plt.xlim(0, 4.0)
+plt.legend(loc='lower right', facecolor='#111827', edgecolor='#374151', labelcolor='white', fontsize=8.5)
+plt.tight_layout()
+plt.savefig(os.path.join(DIR_KNEE_SUM, "zbirni_ugao_kolena_stajne_noge.png"), dpi=300, facecolor='#0b0f19')
+plt.close()
+
 # =============================================================================
 # 5. TABELE I FINALNI IZVOZ REZULTATA
 # =============================================================================
@@ -897,13 +1378,29 @@ df_iner.to_csv(os.path.join(DIR_TABLES, "tabela_moment_inercije_evaluacija.csv")
 df_kin = pd.DataFrame(table4_master_rows)
 df_kin.to_csv(os.path.join(DIR_TABLES, "tabela_master_evaluacija_celi_okreti.csv"), index=False)
 
+# 4. Tabela Momenta Impulsa
+df_mom = pd.DataFrame(table_momentum_rows)
+df_mom.to_csv(os.path.join(DIR_TABLES, "tabela_moment_impulsa_evaluacija.csv"), index=False)
+
+# 5. Tabela Rotacione Kinetičke Energije
+df_eng = pd.DataFrame(table_energy_rows)
+df_eng.to_csv(os.path.join(DIR_TABLES, "tabela_kineticka_energija_rotacije.csv"), index=False)
+
+# 6. Tabela Momenta Sile Rotacije
+df_torque = pd.DataFrame(table_torque_rows)
+df_torque.to_csv(os.path.join(DIR_TABLES, "tabela_moment_sile_evaluacija.csv"), index=False)
+
+# 7. Tabela Kolena Stajne Noge
+df_knee = pd.DataFrame(table_knee_rows)
+df_knee.to_csv(os.path.join(DIR_TABLES, "tabela_kinematika_kolena_stajne_noge.csv"), index=False)
+
 print("\n" + "="*145)
 print("  TABELA 1: STABILNOST I UDALJENOST CENTRA MASE OD PIVOT STOPALA (LOTT & LAWS 2012)")
 print("="*145)
 print(df_lott.to_string(index=False))
 
 print("\n" + "="*145)
-print("  TABELA 2: DINAMIKA MOMENTA INERCIJE TELA I STAJNE NOGE (DE LEVA 1996 + IMURA 2010)")
+print("  TABELA 2: DINAMIKA MOMENTA INERCIJE TELA (DE LEVA 1996 + ŠTAJNEROVA TEOREMA)")
 print("="*145)
 print(df_iner.to_string(index=False))
 
@@ -911,17 +1408,42 @@ print("\n" + "="*145)
 print("  TABELA 3: MASTER KINEMATIKA CELIH OKRETA (UGAONA BRZINA I UGAONO UBRZANJE)")
 print("="*145)
 print(df_kin.to_string(index=False))
+
+print("\n" + "="*145)
+print("  TABELA 4: DINAMIKA MOMENTA IMPULSA L = I_B * omega (ROTACIONI ZAKON OČUVANJA)")
+print("="*145)
+print(df_mom.to_string(index=False))
+
+print("\n" + "="*145)
+print("  TABELA 5: ROTACIONA KINETIČKA ENERGIJA E_k = 0.5 * I_B * omega^2")
+print("="*145)
+print(df_eng.to_string(index=False))
+
+print("\n" + "="*145)
+print("  TABELA 6: DINAMIKA MOMENTA SILE ROTACIJE T = I_B * alpha + (dI/dt) * omega")
+print("="*145)
+print(df_torque.to_string(index=False))
+
+print("\n" + "="*145)
+print("  TABELA 7: KINEMATIKA ZGLOBA KOLENA STAJNE NOGE (FLEKSIJA / EKSTENZIJA)")
+print("="*145)
+print(df_knee.to_string(index=False))
 print("="*145 + "\n")
 
 print(f"✓ SVI REZULTATI SU USPEŠNO GENERISANI I SAČUVANI U: '{BASE_OUT}/'")
-print(f"  ├── Pojedinačni grafici ravnoteže:  {DIR_STAB_INDIVIDUAL}/")
-print(f"  ├── Zbirni grafici ravnoteže:       {DIR_STAB_SUMMARY}/")
-print(f"  ├── Pojedinačni grafici inercije:   {DIR_INER_INDIVIDUAL}/")
-print(f"  ├── Zbirni grafici inercije:        {DIR_INER_SUMMARY}/")
-print(f"  ├── Grafici ugaone brzine (ω):      {DIR_KIN_OMEGA}/")
-print(f"  ├── Grafici ugaonog ubrzanja (α):   {DIR_KIN_ALPHA}/")
-print(f"  ├── X-Z spiralne putanje CoM:       {DIR_XZ_TRAJ}/")
-print(f"  └── Sačuvane CSV tabele:            {DIR_TABLES}/\n")
-#ja ovde racunam koliki je pomeraj tj kolika je udaljenost centra mase od pivot noge tj od noge koja je oslonac 
-#gledam koliko je centar mase koji se racuna po standardnoj formuli udaljen od ose oslonca tj od pivot noge 
-#meri se razdaljina od toga p
+print(f"  ├── Pojedinačni grafici ravnoteže:          {DIR_STAB_INDIVIDUAL}/")
+print(f"  ├── Zbirni grafici ravnoteže:               {DIR_STAB_SUMMARY}/")
+print(f"  ├── Pojedinačni grafici inercije:           {DIR_INER_INDIVIDUAL}/")
+print(f"  ├── Zbirni grafici inercije:                {DIR_INER_SUMMARY}/")
+print(f"  ├── Grafici ugaone brzine (ω):              {DIR_KIN_OMEGA}/")
+print(f"  ├── Grafici ugaonog ubrzanja (α):           {DIR_KIN_ALPHA}/")
+print(f"  ├── Pojedinačni grafici momenta impulsa:    {DIR_MOM_INDIVIDUAL}/")
+print(f"  ├── Zbirni grafici momenta impulsa:         {DIR_MOM_SUMMARY}/")
+print(f"  ├── Pojedinačni grafici kinetičke energije: {DIR_ENG_INDIVIDUAL}/")
+print(f"  ├── Zbirni grafici kinetičke energije:      {DIR_ENG_SUMMARY}/")
+print(f"  ├── Pojedinačni grafici momenta sile:       {DIR_TORQUE_INDIVIDUAL}/")
+print(f"  ├── Zbirni grafici momenta sile:            {DIR_TORQUE_SUMMARY}/")
+print(f"  ├── Pojedinačni grafici kolena:             {DIR_KNEE_IND}/")
+print(f"  ├── Zbirni grafici kolena:                  {DIR_KNEE_SUM}/")
+print(f"  ├── X-Z spiralne putanje CoM:               {DIR_XZ_TRAJ}/")
+print(f"  └── Sačuvane CSV tabele:                    {DIR_TABLES}/\n")
