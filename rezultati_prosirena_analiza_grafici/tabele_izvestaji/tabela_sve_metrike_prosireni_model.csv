@@ -1,0 +1,8 @@
+Atleta,Grupa,Masa [kg],Visina [m],Realna ω0 [°/s],Koef. trenja μ,I_topple [kg*m2],Pad pri 0.1° [s],Okreta pri 0.1°,Pad pri 1.0° [s],Okreta pri 1.0°,Pad pri 3.0° [s],Okreta pri 3.0°
+TRUSOVA,Umetničko klizanje,50.0,1.66,379.2,0.012,75.3,0.95,1.0,0.53,0.6,0.33,0.3
+LIU,Umetničko klizanje,45.0,1.58,1105.8,0.012,61.4,0.36,1.1,0.2,0.6,0.12,0.4
+SCEREBAKOVA,Umetničko klizanje,42.0,1.61,394.2,0.012,59.5,0.92,1.0,0.51,0.6,0.32,0.3
+VALIEVA,Umetničko klizanje,44.0,1.6,150.0,0.012,61.5,1.69,0.7,0.93,0.4,0.57,0.2
+KHOREVA,Balet,47.0,1.73,166.0,0.06,76.8,1.78,0.6,0.95,0.4,0.57,0.2
+MARIANELA,Balet,52.0,1.74,611.2,0.06,86.0,0.64,1.1,0.35,0.6,0.22,0.4
+KAPITONOVA,Balet,48.0,1.68,150.0,0.06,74.0,1.84,0.5,0.98,0.3,0.59,0.2

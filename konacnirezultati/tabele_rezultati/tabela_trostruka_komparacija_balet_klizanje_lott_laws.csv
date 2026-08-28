@@ -1,0 +1,11 @@
+Kategorija,Sportista / Model,Početni nagib θ₀ [°],Ugaona brzina ω,Vreme pada t_pad [s],N_kruto (ODE) [± tol],N_stvarno [okreta],Stvarni nagib θ_sr [°],Lott & Laws Ref. (Tabela 3)
+Umetničko klizanje,TRUSOVA,4.65°,2.06 rev/s (742°/s),0.56 s,1.16 ± 0.20,8.29,3.62°,"0.8 ± 0.1 okr (θ₀≈4.6°, ω=1.7)"
+Umetničko klizanje,LIU,1.88°,2.18 rev/s (784°/s),0.93 s,2.02 ± 0.18,8.68,4.29°,"1.8 ± 0.2 okr (θ₀=1.0°, ω=1.7)"
+Umetničko klizanje,SCEREBAKOVA,3.13°,2.18 rev/s (785°/s),0.73 s,1.59 ± 0.18,8.65,3.94°,"1.1 ± 0.1 okr (θ₀=3.0°, ω=1.7)"
+Umetničko klizanje,VALIEVA,10.41°,1.77 rev/s (637°/s),0.00 s,0.00 ± 0.15,7.04,4.60°,"0.0 ± 0.1 okr (θ₀>9.3°, ω=1.7)"
+Balet,KHOREVA,1.34°,1.23 rev/s (443°/s),1.09 s,1.34 ± 0.10,4.95,4.14°,"1.8 ± 0.2 okr (θ₀=1.0°, ω=1.7)"
+Balet,MARIANELA,4.62°,1.50 rev/s (539°/s),0.56 s,0.84 ± 0.15,6.11,3.84°,"0.8 ± 0.1 okr (θ₀≈4.6°, ω=1.7)"
+Balet,KAPITONOVA,9.28°,1.23 rev/s (444°/s),0.03 s,0.04 ± 0.16,4.80,4.79°,"0.0 ± 0.1 okr (θ₀>9.3°, ω=1.7)"
+Lott & Laws (2012),Ref Model (θ₀=0.1°),0.10°,1.70 rev/s (612°/s),1.94 s,3.30 ± 0.20,— (Teorijski),—,3.3 ± 0.2 (Referenca)
+Lott & Laws (2012),Ref Model (θ₀=1.0°),1.00°,1.70 rev/s (612°/s),1.06 s,1.80 ± 0.20,— (Teorijski),—,1.8 ± 0.2 (Referenca)
+Lott & Laws (2012),Ref Model (θ₀=3.0°),3.00°,1.70 rev/s (612°/s),0.65 s,1.10 ± 0.10,— (Teorijski),—,1.1 ± 0.1 (Referenca)

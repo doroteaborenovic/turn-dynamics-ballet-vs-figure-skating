@@ -1,0 +1,8 @@
+Atleta,Tip,Stajna noga,Ukupno okreta,h_CoM [m],Srednji d_CoM [cm],Maks d_CoM [cm],Srednji nagib θ [°],Maks nagib θ [°],U ravnoteži (θ < 9.3°) [%],SD Sway [cm],Status stabilnosti
+TRUSOVA,Umetničko klizanje,Leva (31),8.29,0.93,6.15,12.88,3.78,7.64,100.0,2.61,Stabilno / U ravnotezi
+LIU,Umetničko klizanje,Leva (31),8.68,0.88,6.89,14.52,4.45,9.12,100.0,3.36,Stabilno / U ravnotezi
+SCEREBAKOVA,Umetničko klizanje,Desna (32),8.65,0.9,6.52,13.12,4.13,7.8,100.0,2.58,Stabilno / U ravnotezi
+VALIEVA,Umetničko klizanje,Desna (32),7.04,0.9,8.0,16.52,5.09,10.51,97.5,3.13,Stabilno / U ravnotezi
+KHOREVA,Balet,Leva (31),4.95,0.97,7.06,16.79,4.17,9.54,99.2,4.1,Stabilno / U ravnotezi
+MARIANELA,Balet,Leva (31),6.11,0.97,6.67,14.18,3.92,7.83,100.0,3.22,Stabilno / U ravnotezi
+KAPITONOVA,Balet,Leva (31),4.8,0.94,7.97,16.3,4.84,9.2,100.0,3.44,Stabilno / U ravnotezi
