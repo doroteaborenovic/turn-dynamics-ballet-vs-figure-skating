@@ -9,10 +9,10 @@ The project is not a packaged application; it is a scientific analysis workflow 
 The project performs the following stages:
 
 1. Reads video input from local folders.
-2. Extracts 2D/3D pose landmarks using MediaPipe Pose.
+2. Extracts pose landmarks using MediaPipe Pose.
 3. Applies ROI tracking and adaptive smoothing to reduce noise and jitter.
 4. Computes body orientation, angular displacement, angular velocity, and center-of-mass-related quantities.
-5. Evaluates biomechanical indicators such as stability, inertia, torque, energy, and inverted-pendulum balance behavior.
+5. Evaluates biomechanical indicators such as stability, inertia, torque and inverted-pendulum balance behavior.
 6. Produces plots and CSV tables that compare ballet with figure skating performance metrics.
 
 ## Main scripts in this repository
@@ -101,7 +101,7 @@ python .\modelobrnutogklatna.py
 ## Typical workflow
 
 1. Put video files into the project video folders.
-2. Run `coord_extraction.py` to detect pose landmarks and export coordinates.
+2. Run `koordinateai.py` to detect pose landmarks and export coordinates.
 3. Run `rezultatizarad.py` to compute kinematic and dynamic metrics.
 4. Inspect the generated plots and tables in `konacnirezultati/`.
 5. Use the inverted-pendulum model outputs for additional stability interpretation.
