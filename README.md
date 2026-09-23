@@ -32,15 +32,12 @@ projekat.fizika/
 ├── .gitignore
 ├── bitnikodovi.zip
 ├── coords.py
-├── coord_extraction.py
 ├── koordinateai.py
 ├── modelobrnutogklatna.py
 ├── prikazivanjevidea.py
 ├── rezultatizarad.py
 ├── rezultati_obrnuto_klatno/
-├── kinematika_rezultati_v2/
 ├── kinematika_videi/
-├── konacne_koordinate/
 ├── konacnirezultati/
 ├── konacni_videi/
 ├── venv/
