@@ -1,43 +1,3 @@
-"""
-POBOLJŠANA EKSTRAKCIJA KOORDINATA - MediaPipe Pose
-====================================================
-Ključne razlike u odnosu na prvobitnu verziju:
-
-1. Koristi se `pose_world_landmarks` (metrički 3D, u metrima, centrirano na kuk)
-   umesto `pose_landmarks` (normalizovano 0-1, gruba z). Ovo eliminiše potrebu
-   za naknadnim "height_m / med_h" skaliranjem u analizi - MediaPipe već vraća
-   metar-skalirane koordinate iz internog 3D modela tela.
-
-2. Dinamički ROI (region of interest) tracking: umesto da se ceo frejm
-   svaki put šalje modelu (gde je osoba mala i sitna u kadru -> manje piksela
-   na telu -> lošija detekcija), koristi se bounding box iz prethodnog frejma
-   + margina, pa se taj isečak uveća i pošalje modelu. Ovo efektivno podiže
-   rezoluciju na kojoj model "vidi" telo, posebno bitno kod brzih pokreta
-   gde je subjekat udaljen od kamere.
-
-3. Per-frame kvalitet: beleži se mean visibility, broj nedostajućih markera
-   i da li je frejm uopšte detektovan - ovo se prenosi dalje niz pipeline
-   da bi analiza mogla da OTEŽINI (weight) manje pouzdane frejmove umesto
-   da ih tretira isto kao pouzdane.
-
-4. One Euro Filter (Casiez et al. 2012) - adaptivno glađenje koje smanjuje
-   jitter na sporim pokretima a NE kasni (lag) na brzim pokretima, za razliku
-   od fiksnog Savitzky-Golay prozora. Primenjuje se ovde, PRE nego što
-   podaci uopšte stignu do analize.
-
-VAŽNO - realna ograničenja koja OVAJ kod ne može da reši:
-- Motion blur kod ekstremno brzih rotacija (500+ °/s) fizički briše detalj
-  iz frejma; nijedan algoritam ne može rekonstruisati informaciju koje nema.
-- Monokularna (jedna kamera) dubina (z-osa) je uvek manje pouzdana od x,y -
-  MediaPipe world landmarks su bolji nego ništa, ali nisu isto što i pravi
-  3D triangulacioni sistem (npr. Vicon, više kamera).
-- Ako ti treba STVARNO visoka preciznost za naučni rad, sledeći koraci bi bili:
-  veći FPS kamera (120+ fps -> manje motion blur-a po frejmu),
-  kraće vreme ekspozicije/shutter speed, ili više kamera + triangulacija.
-
-Ovaj kod je "najbolje što se može izvući iz jedne RGB kamere sa MediaPipe-om",
-ne "savršeno" u apsolutnom smislu - to poslednje ne postoji za ovaj setup.
-"""
 
 import os
 import glob
@@ -47,23 +7,9 @@ import pandas as pd
 import numpy as np
 from scipy.signal import savgol_filter
 
-
-# =============================================================================
-# ONE EURO FILTER - adaptivno glađenje bez fiksnog laga
-# =============================================================================
 class OneEuroFilter:
-    """
-    Casiez, Roussel, Vogel (2012) - "1€ Filter: A Simple Speed-based
-    Low-pass Filter for Noisy Input in Interactive Systems"
 
-    Prednost nad Savitzky-Golay/Butterworth: adaptivno menja jačinu
-    filtriranja u zavisnosti od brzine promene signala. Kad se telo
-    kreće sporo -> jako glača (uklanja jitter). Kad se kreće brzo
-    (npr. tokom same rotacije) -> manje glača (ne unosi lag/kašnjenje
-    koje bi lažno smanjilo izmerenu ugaonu brzinu).
-    """
-
-    def __init__(self, freq, min_cutoff=1.0, beta=0.02, d_cutoff=1.0):
+   def __init__(self, freq, min_cutoff=1.0, beta=0.02, d_cutoff=1.0):
         self.freq = freq
         self.min_cutoff = min_cutoff
         self.beta = beta
@@ -106,10 +52,6 @@ def make_filter_bank(n_landmarks, freq, min_cutoff=1.0, beta=0.02):
         for lm in range(n_landmarks) for ax in ('x', 'y', 'z')
     }
 
-
-# =============================================================================
-# DINAMIČKI ROI TRACKING
-# =============================================================================
 def bbox_from_landmarks(landmarks_px, frame_w, frame_h, margin_ratio=0.35):
     """Bounding box oko detektovanih markera + margina, u piksel koordinatama."""
     xs = [p[0] for p in landmarks_px if p is not None]
@@ -132,8 +74,8 @@ def bbox_from_landmarks(landmarks_px, frame_w, frame_h, margin_ratio=0.35):
 
 
 def crop_to_square_min_size(bbox, frame_w, frame_h, min_size=480):
-    """Proširi bbox na kvadrat od bar min_size px, centriran, unutar granica frejma."""
-    x_min, y_min, x_max, y_max = bbox
+
+   x_min, y_min, x_max, y_max = bbox
     cx, cy = (x_min + x_max) // 2, (y_min + y_max) // 2
     side = max(x_max - x_min, y_max - y_min, min_size)
     half = side // 2
@@ -141,8 +83,8 @@ def crop_to_square_min_size(bbox, frame_w, frame_h, min_size=480):
     y0 = max(0, cy - half)
     x1 = min(frame_w, cx + half)
     y1 = min(frame_h, cy + half)
-    # ako je isekao ivicu frejma, pomeri nazad da zadrži veličinu
-    if x1 - x0 < side:
+
+   if x1 - x0 < side:
         if x0 == 0:
             x1 = min(frame_w, x0 + side)
         else:
@@ -155,10 +97,7 @@ def crop_to_square_min_size(bbox, frame_w, frame_h, min_size=480):
     return (x0, y0, x1, y1)
 
 
-# =============================================================================
-# GLAVNA OBRADA
-# =============================================================================
-def process_video_folder(folder_path, output_dir="kinematika_rezultati_v2",
+def process_video_folder(folder_path, output_dir="kinematika_rezultati",
                           use_roi_tracking=True, apply_one_euro=True,
                           one_euro_min_cutoff=1.2, one_euro_beta=0.03):
 
