@@ -20,16 +20,14 @@ The goal is to determine how the different physical environments and techniques 
 
 ## Main scripts
 
-The repository contains several Python scripts for processing motion data and generating results:
+The repository currently contains the following Python scripts relevant to the project:
 
 - `rezultatizarad.py` — main analysis pipeline for producing plots and summary tables
 - `koordinateai.py` — coordinate-related analysis and processing
-- `koordinateana.py` — additional analytical work on extracted motion data
 - `coords.py` — coordinate utilities and helper functions
+- `coord_extraction.py` — extraction and preparation of motion coordinates
 - `modelobrnutogklatna.py` — simplified inverted-pendulum/dynamic model analysis
-- `modelvsosoba.py` — comparison between model-based predictions and actual motion
-- `momentsile.py` — torque and moment calculations
-- `konacnekoordinate.py` — final coordinate preparation and output generation
+- `prikazivanjevidea.py` — video preview/visualization support
 
 ## Repository structure
 
@@ -37,51 +35,39 @@ The repository contains several Python scripts for processing motion data and ge
 projekat.fizika/
 ├── README.md
 ├── .gitignore
-├── venv/
+├── bitnikodovi.zip
 ├── coords.py
-├── konacnekoordinate.py
+├── coord_extraction.py
 ├── koordinateai.py
-├── koordinateana.py
 ├── modelobrnutogklatna.py
-├── modelvsosoba.py
-├── momentsile.py
+├── prikazivanjevidea.py
 ├── rezultatizarad.py
+├── rezultati_obrnuto_klatno/
 ├── kinematika_rezultati_v2/
 ├── kinematika_videi/
-├── koordinate_sredjene/
-├── obradjene_koordinate/
-├── popravljene_koordinate/
-├── popravljene_koordinate_deleva/
-├── skracene_koordinate/
 ├── konacne_koordinate/
 ├── konacnirezultati/
-├── rezultati_lott_laws_komparacija/
-├── rezultati_prosirena_analiza_grafici/
-├── rezultati_prosireni_model_konstantna_brzina/
-├── renderovani_videi/
 ├── konacni_videi/
-├── bitnikodovi.zip
-└── .git/
+└── venv/
 ```
 
 ## Data and outputs
 
 ### Input data folders
 
-These folders contain coordinate data and intermediate pipeline outputs:
+These folders currently contain coordinate data and intermediate project outputs:
 
 - `kinematika_rezultati_v2/`
-- `koordinate_sredjene/`
-- `obradjene_koordinate/`
-- `popravljene_koordinate/`
+- `kinematika_videi/`
 - `konacne_koordinate/`
-- `skracene_koordinate/`
+- `konacni_videi/`
 
 ### Output folders
 
 Results are exported to:
 
 - `konacnirezultati/`
+- `rezultati_obrnuto_klatno/`
 
 This directory contains generated plots and summary tables for:
 
@@ -119,12 +105,12 @@ From the repository root:
 python .\rezultatizarad.py
 ```
 
-You can also run some of the supporting scripts separately:
+Additional supporting scripts may be run separately when needed:
 
 ```powershell
-python .\momentsile.py
-python .\modelvsosoba.py
+python .\coord_extraction.py
 python .\modelobrnutogklatna.py
+python .\prikazivanjevidea.py
 ```
 
 ## Research workflow
@@ -145,64 +131,7 @@ The project typically follows this path:
 - The scripts assume execution from the project root.
 - Some files include Windows-specific path handling for local analysis.
 
-## GitHub workflow
-
-To publish this project on GitHub, use the following commands:
-
-```bash
-git status
-git add .
-git commit -m "Initial project import"
-git branch -M main
-git remote add origin https://github.com/<your-username>/<your-repository-name>.git
-git push -u origin main
-```
-
-If the repository is already connected to GitHub, just use:
-
-```bash
-git push origin main
-```
-
-If the remote branch has newer commits, resolve the rebase/merge first and then push again.
-
 ## Summary
 
 This repository is a biomechanical and motion-analysis project focused on comparing turns in classical ballet and figure skating. It combines coordinate processing, numerical modeling, and visualization to quantify differences in rotational behavior and dynamic stability between the two disciplines.
 
-
-### 7. Future updates
-
-After changes are made:
-
-```bash
-git add .
-git commit -m "Update analysis pipeline and results"
-git push
-```
-
-## Recommended GitHub repository naming
-
-Good names for this project include:
-
-- `biomechanics-ballet-skating-analysis`
-- `dancer-skater-balance-analysis`
-- `kinematics-balance-torque-project`
-- `athlete-biomechanics-analysis`
-
-## License
-
-This project currently does not include an explicit license file. If you plan to publish it publicly, it is recommended to add one such as MIT or Apache-2.0.
-
-## Suggested next steps
-
-- add a `requirements.txt` file for easier setup
-- add a `data/` folder with a clear description of input formats
-- split code into modules for better maintainability
-- add a `LICENSE` file
-- document the coordinate CSV schema used by each script
-- clean up duplicate or legacy scripts if they are no longer needed
-
-## Summary
-
-This repository contains a computational biomechanics research workflow for analyzing human movement in ballet and figure skating. It combines scientific signal processing, body-segment mechanics, and result plotting into a single local analysis environment suitable for experimentation, reporting, and research documentation.
