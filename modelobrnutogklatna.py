@@ -1,5 +1,6 @@
 import os
 import glob
+import re
 import warnings
 import numpy as np
 import pandas as pd
@@ -18,7 +19,7 @@ warnings.filterwarnings('ignore')
 TIME_WINDOWS = {
     "trusova":       (6.0, 10.0),
     "khoreva":       (0.0, 4.0),
-    "marianela":     (0.0, 4.0),
+    "marianela":     (0.0, 3.5),   # Usklađeno na 3.5s kao u glavnom kodu
     "kapitonova":    (0.0, 4.0),
     "liu":           (0.0, 4.0),
     "valieva":       (0.0, 4.0),
@@ -198,6 +199,31 @@ def track_strictly_monotonic_spin(raw_angles, is_skater=True):
     theta_smooth = savgol_filter(theta_continuous, window_length=win, polyorder=2)
     return np.maximum(theta_smooth, 0.0)
 
+def izracunaj_kinematiku_cisto(theta_deg, dt, win=15):
+    """
+    Identicna funkcija iz glavnog koda:
+    omega = d(theta)/dt sa ivicnim padding-om protiv distorzije.
+    """
+    n = len(theta_deg)
+    win = min(win, n if n % 2 != 0 else n - 1)
+    if win < 5:
+        win = 5 if n >= 5 else (n if n % 2 != 0 else n - 1)
+    pad_len = win
+
+    slope_start = (theta_deg[1] - theta_deg[0]) / dt
+    slope_end = (theta_deg[-1] - theta_deg[-2]) / dt
+
+    pad_left = theta_deg[0] - np.arange(pad_len, 0, -1) * slope_start * dt
+    pad_right = theta_deg[-1] + np.arange(1, pad_len + 1) * slope_end * dt
+    theta_ext = np.concatenate([pad_left, theta_deg, pad_right])
+
+    poly = 3 if win > 3 else 2
+    omega_ext = savgol_filter(theta_ext, window_length=win, polyorder=poly, deriv=1, delta=dt)
+    omega_deg_s = omega_ext[pad_len:-pad_len]
+
+    alpha_deg_s2 = np.gradient(omega_deg_s, dt)
+    return omega_deg_s, alpha_deg_s2
+
 # =============================================================================
 # 3. GLAVNA OBRADA I INTEGRACIJA OBRNUTOG KLATNA (ODE)
 # =============================================================================
@@ -225,7 +251,9 @@ for file in sorted(all_files):
     height_m = athlete_data["height"]
     weight_kg = athlete_data["weight"]
     is_skater = "klizanje" in atype.lower()
-    clean_name = athlete_key.upper() if athlete_key else os.path.basename(file).split('_')[0].upper()
+    
+    raw_name = athlete_key.upper() if athlete_key else os.path.basename(file).split('_')[0].upper()
+    clean_name = re.sub(r'[^A-Za-z0-9]', '', raw_name).strip()
 
     if clean_name in processed_names:
         continue
@@ -307,18 +335,19 @@ for file in sorted(all_files):
     z_correction = np.clip(hip_width_real / (hip_width_meas + 1e-5), 0.35, 0.65)
     pts_m[:, :, 2] = pts_m[:, :, 2] * z_correction
 
-    # 4. Kinematika rotacije i ugaona brzina
+    # 4. Kinematika rotacije i ugaona brzina (IDENTIČNO GLAVNOM KODU)
     raw_angles_B = compute_fused_torso_orientation_3d(pts_m)
     theta_B = track_strictly_monotonic_spin(raw_angles_B, is_skater=is_skater)
     total_rotations = np.degrees(theta_B[-1]) / 360.0
 
+    theta_deg = np.degrees(theta_B)
     win_kin = max(11, min(25, n_frames if n_frames % 2 != 0 else n_frames - 1))
-    omega_B = savgol_filter(theta_B, window_length=win_kin, polyorder=2, deriv=1, delta=dt)
-    
-    floor_rad_s = np.deg2rad(150.0 if is_skater else 100.0)
-    omega_B = np.maximum(omega_B, floor_rad_s)
-    omega_deg_s = np.degrees(omega_B)
-    
+    omega_deg_s, alpha_deg_s2 = izracunaj_kinematiku_cisto(theta_deg, dt, win=win_kin)
+
+    floor_deg_s = 150.0 if is_skater else 100.0
+    omega_deg_s = np.maximum(omega_deg_s, floor_deg_s)
+    omega_B = np.radians(omega_deg_s)
+
     mean_omega_deg_s = np.mean(omega_deg_s)
     mean_omega_rev_s = mean_omega_deg_s / 360.0
 
@@ -356,7 +385,7 @@ for file in sorted(all_files):
         m_frac = DE_LEVA_FEMALE[seg_name]["mass"]
         com_m += m_frac * s_coords
 
-    # 6. Stabilnost i Topple ugao nagiba (potpuno usklađen)
+    # 6. Stabilnost i Topple ugao nagiba (IDENTIČNO GLAVNOM KODU)
     stance_mid_foot = (pts_m[:, p_ank, :] + pts_m[:, p_toe, :]) / 2.0
     win_piv = max(5, min(15, n_frames if n_frames % 2 != 0 else n_frames - 1))
     pivot_x_t = savgol_filter(median_filter(stance_mid_foot[:, 0], size=3), window_length=win_piv, polyorder=1)
@@ -381,10 +410,11 @@ for file in sorted(all_files):
         d_com_m = savgol_filter(median_filter(radii_m, size=3), window_length=win_rad, polyorder=2)
 
     l_arm = 0.56 * height_m
-    r_min_phys = l_arm * np.tan(np.radians(RIGID_BODY_LIMIT_DEG))
+    h_com = np.full(n_frames, l_arm)
+    r_min_phys = h_com * np.tan(np.radians(RIGID_BODY_LIMIT_DEG))
     d_com_m = np.maximum(d_com_m, r_min_phys)
 
-    theta_topple_rad = np.arctan2(d_com_m, l_arm)
+    theta_topple_rad = np.arctan2(d_com_m, h_com)
     theta_topple_deg = np.degrees(theta_topple_rad)
     theta_topple_deg = savgol_filter(theta_topple_deg, window_length=win_rad, polyorder=2)
     theta_topple_deg = np.clip(theta_topple_deg, RIGID_BODY_LIMIT_DEG, 12.0)
@@ -504,7 +534,6 @@ plt.close()
 
 comparison_rows = []
 
-# 1. Dodavanje analiziranih sportista
 for r in table_ode_rows:
     th0 = r["theta_0 [deg]"]
     if th0 <= 0.5:
@@ -530,7 +559,6 @@ for r in table_ode_rows:
         "Lott & Laws Ref. (Tabela 3)": ref_str
     })
 
-# 2. Referentni podaci iz rada Lott & Laws (2012)
 comparison_rows.append({
     "Kategorija": "Lott & Laws (2012)",
     "Sportista / Model": "Ref Model (θ₀=0.1°)",
@@ -568,7 +596,6 @@ comparison_rows.append({
 df_comp = pd.DataFrame(comparison_rows)
 df_comp.to_csv(os.path.join(DIR_TABLES, "tabela_trostruka_komparacija_balet_klizanje_lott_laws.csv"), index=False)
 
-# Renderovanje slike tabele (.PNG)
 fig, ax = plt.subplots(figsize=(19, 9.5), facecolor='#0b0f19')
 ax.set_facecolor('#0b0f19')
 ax.axis('off')
@@ -599,13 +626,12 @@ table_png_path = os.path.join(DIR_TABLES, "tabela_komparacija_balet_klizanje_lot
 plt.savefig(table_png_path, dpi=300, facecolor='#0b0f19', bbox_inches='tight')
 plt.close()
 
-# Prikaz tabele u konzoli
 print("\n" + "="*160)
 print("  FINALNA TABELA: MOJI REZULTATI (BALET / KLIZANJE) VS. LOTT & LAWS (2012)")
 print("="*160)
 print(df_comp.to_string(index=False))
 print("="*160 + "\n")
-print(f"✓ Pojedinačni ODE grafici:  {DIR_ODE_INDIVIDUAL}/")
-print(f"✓ Zbirni ODE grafik:        {DIR_ODE_SUMMARY}/")
-print(f"✓ CSV Tabela:               {os.path.join(DIR_TABLES, 'tabela_trostruka_komparacija_balet_klizanje_lott_laws.csv')}")
-print(f"✓ PNG Slika tabele (300DPI): {table_png_path}\n")
+print(f"✓ Pojedinačni ODE grafici:    {DIR_ODE_INDIVIDUAL}/")
+print(f"✓ Zbirni ODE grafik:          {DIR_ODE_SUMMARY}/")
+print(f"✓ CSV Tabela:                 {os.path.join(DIR_TABLES, 'tabela_trostruka_komparacija_balet_klizanje_lott_laws.csv')}")
+print(f"✓ PNG Slika tabele (300DPI):  {table_png_path}\n")

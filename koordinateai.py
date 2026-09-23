@@ -1,3 +1,44 @@
+"""
+POBOLJŠANA EKSTRAKCIJA KOORDINATA - MediaPipe Pose
+====================================================
+Ključne razlike u odnosu na prvobitnu verziju:
+
+1. Koristi se `pose_world_landmarks` (metrički 3D, u metrima, centrirano na kuk)
+   umesto `pose_landmarks` (normalizovano 0-1, gruba z). Ovo eliminiše potrebu
+   za naknadnim "height_m / med_h" skaliranjem u analizi - MediaPipe već vraća
+   metar-skalirane koordinate iz internog 3D modela tela.
+
+2. Dinamički ROI (region of interest) tracking: umesto da se ceo frejm
+   svaki put šalje modelu (gde je osoba mala i sitna u kadru -> manje piksela
+   na telu -> lošija detekcija), koristi se bounding box iz prethodnog frejma
+   + margina, pa se taj isečak uveća i pošalje modelu. Ovo efektivno podiže
+   rezoluciju na kojoj model "vidi" telo, posebno bitno kod brzih pokreta
+   gde je subjekat udaljen od kamere.
+
+3. Per-frame kvalitet: beleži se mean visibility, broj nedostajućih markera
+   i da li je frejm uopšte detektovan - ovo se prenosi dalje niz pipeline
+   da bi analiza mogla da OTEŽINI (weight) manje pouzdane frejmove umesto
+   da ih tretira isto kao pouzdane.
+
+4. One Euro Filter (Casiez et al. 2012) - adaptivno glađenje koje smanjuje
+   jitter na sporim pokretima a NE kasni (lag) na brzim pokretima, za razliku
+   od fiksnog Savitzky-Golay prozora. Primenjuje se ovde, PRE nego što
+   podaci uopšte stignu do analize.
+
+VAŽNO - realna ograničenja koja OVAJ kod ne može da reši:
+- Motion blur kod ekstremno brzih rotacija (500+ °/s) fizički briše detalj
+  iz frejma; nijedan algoritam ne može rekonstruisati informaciju koje nema.
+- Monokularna (jedna kamera) dubina (z-osa) je uvek manje pouzdana od x,y -
+  MediaPipe world landmarks su bolji nego ništa, ali nisu isto što i pravi
+  3D triangulacioni sistem (npr. Vicon, više kamera).
+- Ako ti treba STVARNO visoka preciznost za naučni rad, sledeći koraci bi bili:
+  veći FPS kamera (120+ fps -> manje motion blur-a po frejmu),
+  kraće vreme ekspozicije/shutter speed, ili više kamera + triangulacija.
+
+Ovaj kod je "najbolje što se može izvući iz jedne RGB kamere sa MediaPipe-om",
+ne "savršeno" u apsolutnom smislu - to poslednje ne postoji za ovaj setup.
+"""
+
 import os
 import glob
 import cv2
@@ -6,31 +47,128 @@ import pandas as pd
 import numpy as np
 from scipy.signal import savgol_filter
 
-def calculate_angle_3d(a, b, c):
-    """Računa ugao u zglobovima B u 3D prostoru (teme B)"""
-    a, b, c = np.array(a), np.array(b), np.array(c)
-    ba = a - b
-    bc = c - b
-    
-    norm_ba = np.linalg.norm(ba)
-    norm_bc = np.linalg.norm(bc)
-    
-    if norm_ba == 0 or norm_bc == 0:
-        return np.nan
-        
-    cosine_angle = np.dot(ba, bc) / (norm_ba * norm_bc)
-    angle = np.arccos(np.clip(cosine_angle, -1.0, 1.0))
-    return np.degrees(angle)
 
-def process_video_folder(folder_path, output_dir="kinematika_rezultati"):
+# =============================================================================
+# ONE EURO FILTER - adaptivno glađenje bez fiksnog laga
+# =============================================================================
+class OneEuroFilter:
+    """
+    Casiez, Roussel, Vogel (2012) - "1€ Filter: A Simple Speed-based
+    Low-pass Filter for Noisy Input in Interactive Systems"
+
+    Prednost nad Savitzky-Golay/Butterworth: adaptivno menja jačinu
+    filtriranja u zavisnosti od brzine promene signala. Kad se telo
+    kreće sporo -> jako glača (uklanja jitter). Kad se kreće brzo
+    (npr. tokom same rotacije) -> manje glača (ne unosi lag/kašnjenje
+    koje bi lažno smanjilo izmerenu ugaonu brzinu).
+    """
+
+    def __init__(self, freq, min_cutoff=1.0, beta=0.02, d_cutoff=1.0):
+        self.freq = freq
+        self.min_cutoff = min_cutoff
+        self.beta = beta
+        self.d_cutoff = d_cutoff
+        self.x_prev = None
+        self.dx_prev = 0.0
+        self.t_prev = None
+
+    def _alpha(self, cutoff, dt):
+        tau = 1.0 / (2 * np.pi * cutoff)
+        return 1.0 / (1.0 + tau / dt)
+
+    def filter(self, x, t):
+        if self.t_prev is None:
+            self.x_prev = x
+            self.dx_prev = 0.0
+            self.t_prev = t
+            return x
+
+        dt = max(t - self.t_prev, 1e-6)
+
+        dx = (x - self.x_prev) / dt
+        a_d = self._alpha(self.d_cutoff, dt)
+        dx_hat = a_d * dx + (1 - a_d) * self.dx_prev
+
+        cutoff = self.min_cutoff + self.beta * abs(dx_hat)
+        a = self._alpha(cutoff, dt)
+        x_hat = a * x + (1 - a) * self.x_prev
+
+        self.x_prev = x_hat
+        self.dx_prev = dx_hat
+        self.t_prev = t
+        return x_hat
+
+
+def make_filter_bank(n_landmarks, freq, min_cutoff=1.0, beta=0.02):
+    """Po jedan OneEuroFilter za svaku (landmark, osu) kombinaciju."""
+    return {
+        (lm, ax): OneEuroFilter(freq, min_cutoff=min_cutoff, beta=beta)
+        for lm in range(n_landmarks) for ax in ('x', 'y', 'z')
+    }
+
+
+# =============================================================================
+# DINAMIČKI ROI TRACKING
+# =============================================================================
+def bbox_from_landmarks(landmarks_px, frame_w, frame_h, margin_ratio=0.35):
+    """Bounding box oko detektovanih markera + margina, u piksel koordinatama."""
+    xs = [p[0] for p in landmarks_px if p is not None]
+    ys = [p[1] for p in landmarks_px if p is not None]
+    if not xs or not ys:
+        return None
+    x_min, x_max = min(xs), max(xs)
+    y_min, y_max = min(ys), max(ys)
+    w = x_max - x_min
+    h = y_max - y_min
+    mx = w * margin_ratio
+    my = h * margin_ratio
+    x_min = max(0, int(x_min - mx))
+    y_min = max(0, int(y_min - my))
+    x_max = min(frame_w, int(x_max + mx))
+    y_max = min(frame_h, int(y_max + my))
+    if x_max <= x_min or y_max <= y_min:
+        return None
+    return (x_min, y_min, x_max, y_max)
+
+
+def crop_to_square_min_size(bbox, frame_w, frame_h, min_size=480):
+    """Proširi bbox na kvadrat od bar min_size px, centriran, unutar granica frejma."""
+    x_min, y_min, x_max, y_max = bbox
+    cx, cy = (x_min + x_max) // 2, (y_min + y_max) // 2
+    side = max(x_max - x_min, y_max - y_min, min_size)
+    half = side // 2
+    x0 = max(0, cx - half)
+    y0 = max(0, cy - half)
+    x1 = min(frame_w, cx + half)
+    y1 = min(frame_h, cy + half)
+    # ako je isekao ivicu frejma, pomeri nazad da zadrži veličinu
+    if x1 - x0 < side:
+        if x0 == 0:
+            x1 = min(frame_w, x0 + side)
+        else:
+            x0 = max(0, x1 - side)
+    if y1 - y0 < side:
+        if y0 == 0:
+            y1 = min(frame_h, y0 + side)
+        else:
+            y0 = max(0, y1 - side)
+    return (x0, y0, x1, y1)
+
+
+# =============================================================================
+# GLAVNA OBRADA
+# =============================================================================
+def process_video_folder(folder_path, output_dir="kinematika_rezultati_v2",
+                          use_roi_tracking=True, apply_one_euro=True,
+                          one_euro_min_cutoff=1.2, one_euro_beta=0.03):
+
     os.makedirs(output_dir, exist_ok=True)
-    
-    # Pronalazi sve MP4 i AVI fajlove u folderu
+
     video_extensions = ("*.mp4", "*.avi", "*.mov", "*.mkv")
     video_files = []
     for ext in video_extensions:
         video_files.extend(glob.glob(os.path.join(folder_path, ext)))
-        
+
     if not video_files:
         print(f"Nije pronađen nijedan video u: {folder_path}")
         return
@@ -46,83 +184,162 @@ def process_video_folder(folder_path, output_dir="kinematika_rezultati"):
         cap = cv2.VideoCapture(video_path)
         fps = cap.get(cv2.CAP_PROP_FPS)
         if fps == 0 or np.isnan(fps):
-            fps = 30.0  # podrazumevani FPS ako video nema podatak
+            fps = 30.0
         dt = 1.0 / fps
+        frame_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        frame_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-        pose = mp_pose.Pose(
+        # Dva modela: jedan za full-frame (kad se izgubi trag), jedan za ROI crop
+        pose_full = mp_pose.Pose(
             static_image_mode=False,
             model_complexity=2,
+            smooth_landmarks=True,
             min_detection_confidence=0.5,
             min_tracking_confidence=0.5
         )
+        pose_roi = mp_pose.Pose(
+            static_image_mode=False,
+            model_complexity=2,
+            smooth_landmarks=True,
+            min_detection_confidence=0.4,   # niži prag OK jer je ROI zumiran = čistiji signal
+            min_tracking_confidence=0.4
+        )
+
+        n_lm = 33
+        filter_bank = make_filter_bank(n_lm, fps, one_euro_min_cutoff, one_euro_beta) if apply_one_euro else None
 
         data_rows = []
+        world_rows = []
+        quality_rows = []
+
+        current_bbox = None  # (x0,y0,x1,y1) u px prethodnog frejma, None = koristi full frame
         frame_idx = 0
+        lost_track_counter = 0
 
         while cap.isOpened():
             ret, frame = cap.read()
             if not ret:
                 break
 
-            image_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            results = pose.process(image_rgb)
+            use_roi = use_roi_tracking and current_bbox is not None
+            if use_roi:
+                x0, y0, x1, y1 = current_bbox
+                crop = frame[y0:y1, x0:x1]
+                image_rgb = cv2.cvtColor(crop, cv2.COLOR_BGR2RGB)
+                results = pose_roi.process(image_rgb)
+                crop_w, crop_h = (x1 - x0), (y1 - y0)
+                offset_x, offset_y = x0, y0
+            else:
+                image_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                results = pose_full.process(image_rgb)
+                crop_w, crop_h = frame_w, frame_h
+                offset_x, offset_y = 0, 0
 
             row = [frame_idx, frame_idx * dt]
+            world_row = [frame_idx, frame_idx * dt]
 
-            if results.pose_landmarks:
-                landmarks = results.pose_landmarks.landmark
-                
-                # Snimanje svih 33 tačaka
-                for lm in landmarks:
-                    row.extend([lm.x, lm.y, lm.z, lm.visibility])
+            detected = results.pose_landmarks is not None and results.pose_world_landmarks is not None
 
-                # Primer: Izračunavanje ugla desnog lakta (Rame=12, Lakat=14, Šaka=16)
-                p12 = [landmarks[12].x, landmarks[12].y, landmarks[12].z]
-                p14 = [landmarks[14].x, landmarks[14].y, landmarks[14].z]
-                p16 = [landmarks[16].x, landmarks[16].y, landmarks[16].z]
-                
-                elbow_angle = calculate_angle_3d(p12, p14, p16)
-                row.append(elbow_angle)
+            if detected:
+                landmarks_norm = results.pose_landmarks.landmark
+                landmarks_world = results.pose_world_landmarks.landmark
+
+                # px koordinate u punom frejmu (za ROI bbox sledećeg frejma)
+                landmarks_px = []
+                vis_list = []
+
+                for i in range(n_lm):
+                    lm = landmarks_norm[i]
+                    # mapiranje nazad iz crop-a u koordinate punog frejma
+                    px = offset_x + lm.x * crop_w
+                    py = offset_y + lm.y * crop_h
+                    landmarks_px.append((px, py))
+                    vis_list.append(lm.visibility)
+
+                    # normalizovano na PUN frejm (konzistentno bez obzira na ROI/full)
+                    x_full = px / frame_w
+                    y_full = py / frame_h
+
+                    if apply_one_euro:
+                        t = frame_idx * dt
+                        x_full = filter_bank[(i, 'x')].filter(x_full, t)
+                        y_full = filter_bank[(i, 'y')].filter(y_full, t)
+                        z_f = filter_bank[(i, 'z')].filter(lm.z, t)
+                    else:
+                        z_f = lm.z
+
+                    row.extend([x_full, y_full, z_f, lm.visibility])
+
+                    wlm = landmarks_world[i]
+                    world_row.extend([wlm.x, wlm.y, wlm.z, wlm.visibility])
+
+                mean_vis = float(np.mean(vis_list))
+                n_low_vis = int(np.sum(np.array(vis_list) < 0.5))
+
+                # ažuriraj ROI za sledeći frejm
+                if use_roi_tracking:
+                    bbox = bbox_from_landmarks(landmarks_px, frame_w, frame_h, margin_ratio=0.45)
+                    if bbox is not None:
+                        current_bbox = crop_to_square_min_size(bbox, frame_w, frame_h, min_size=480)
+                    lost_track_counter = 0
             else:
-                # Ako čovek nije detektovan
-                row.extend([np.nan] * (33 * 4 + 1))
+                row.extend([np.nan] * (n_lm * 4))
+                world_row.extend([np.nan] * (n_lm * 4))
+                mean_vis = 0.0
+                n_low_vis = n_lm
+                lost_track_counter += 1
+                # posle 5 uzastopnih promašaja, vrati se na full-frame detekciju
+                if lost_track_counter >= 5:
+                    current_bbox = None
+
+            quality_rows.append({
+                "frame": frame_idx,
+                "timestamp_sec": frame_idx * dt,
+                "detected": detected,
+                "used_roi": use_roi,
+                "mean_visibility": mean_vis,
+                "n_low_visibility_landmarks": n_low_vis
+            })
 
             data_rows.append(row)
+            world_rows.append(world_row)
             frame_idx += 1
 
         cap.release()
-        pose.close()
+        pose_full.close()
+        pose_roi.close()
 
-        # Definisane kolona
         columns = ["frame", "timestamp_sec"]
-        for i in range(33):
+        for i in range(n_lm):
             columns.extend([f"x_{i}", f"y_{i}", f"z_{i}", f"vis_{i}"])
-        columns.append("angle_right_elbow")
+
+        world_columns = ["frame", "timestamp_sec"]
+        for i in range(n_lm):
+            world_columns.extend([f"wx_{i}", f"wy_{i}", f"wz_{i}", f"wvis_{i}"])
 
         df = pd.DataFrame(data_rows, columns=columns)
+        df_world = pd.DataFrame(world_rows, columns=world_columns)
+        df_quality = pd.DataFrame(quality_rows)
 
-        # Izračunavanje ugaone brzine i ubrzanja (uz filtriranje)
-        angles = df["angle_right_elbow"].interpolate().bfill().ffill()
-        
-        if len(angles) >= 7:
-            # Filtriranje šuma (Savitzky-Golay filter)
-            smooth_angles = savgol_filter(angles, window_length=7, polyorder=2)
-            df["angle_right_elbow_smooth"] = smooth_angles
-            
-            # Ugaona brzina (deg/s)
-            df["angular_velocity_deg_s"] = np.gradient(smooth_angles, dt)
-            # Ugaono ubrzanje (deg/s^2)
-            df["angular_acceleration_deg_s2"] = np.gradient(df["angular_velocity_deg_s"], dt)
+        base_name = os.path.splitext(video_name)[0]
 
-        # Čuvanje u CSV
-        csv_name = os.path.splitext(video_name)[0] + "_kinematics.csv"
-        csv_path = os.path.join(output_dir, csv_name)
+        csv_path = os.path.join(output_dir, f"{base_name}_kinematics.csv")
+        world_csv_path = os.path.join(output_dir, f"{base_name}_world.csv")
+        quality_csv_path = os.path.join(output_dir, f"{base_name}_quality.csv")
+
         df.to_csv(csv_path, index=False)
-        print(f"Završeno! Rezultat sačuvan u: {csv_path}")
+        df_world.to_csv(world_csv_path, index=False)
+        df_quality.to_csv(quality_csv_path, index=False)
 
-folder_videa = r"C:\Users\PC\Videos\Screen Recordings\videiples"
-process_video_folder(folder_videa)
-#metod ovde je bio da se izvuce 33 kljucne tacke tela pomocu emdia pipe pose modela i koristi se oristiš najpreciznijua verzija mediapipe modelaa
-# #media pipe je google-ova biblioteka za obradu slike i videa koja omogućava detekciju i praćenje ljudskog tela, ruku, lica i drugih objekata u realnom vremenu. U ovom kodu, koristi se za detekciju 33 ključne tačke ljudskog tela (landmarke) u videu, što omogućava analizu kinematike pokreta sportista.
-#dakle ja ucitam video, krositim googleovu biblioteku za ekstrakciju koordianta koja gleda frejm po frejm i detektuje gde je osoba pa tako i psotavlja 33 kljcune tacke i cuvam x y z koordianta od cega se z "nagadja" koja je dubina slike
-#  onda kada negde dodje do greske/pogesno ucitane koordiante onda se koristi interpollacina da bi se izejdnacio deo gde je doslo do nekog prekida ili seckanja u videu  i koristi se golay filter da bis euklonio sum i kao da se koordiante tresu i da bi se cikica stabilizovao (ugoana brzina i ubrzanje se kasnije rade kod mene ponovo)
+        pct_detected = df_quality["detected"].mean() * 100
+        pct_low_vis = (df_quality["n_low_visibility_landmarks"] > 10).mean() * 100
+        print(f"  Detektovano frejmova: {pct_detected:.1f}%")
+        print(f"  Frejmova sa >10 markera niske vidljivosti: {pct_low_vis:.1f}%")
+        print(f"  Sačuvano: {csv_path}")
+        print(f"  Sačuvano (world/metric): {world_csv_path}")
+        print(f"  Sačuvano (kvalitet): {quality_csv_path}")
+
+
+if __name__ == "__main__":
+    folder_videa = r"C:\Users\PC\Videos\Screen Recordings\videiples"
+    process_video_folder(folder_videa)
