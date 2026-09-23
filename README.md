@@ -91,7 +91,7 @@ The project is currently built for a Windows local workflow and uses Windows-spe
 From the project root:
 
 ```powershell
-python .\coord_extraction.py
+python .\koordianteai.py
 python .\rezultatizarad.py
 ```
 
